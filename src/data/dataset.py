@@ -34,6 +34,7 @@ class WaveDataset(Dataset):
         self.normalize = normalize
         self.mixup_config = mixup_config if mixup_config is not None else {}
         self.max_len = max_len
+        self.train = train
 
     def __len__(self):
         return len(self.df)
@@ -42,9 +43,9 @@ class WaveDataset(Dataset):
         with h5py.File(self.paths[idx], "r") as f:
             wave = f["au"]
 
-            if len(wave) < self.max_len:  # Pad
+            if len(wave) <= self.max_len:  # Pad
                 pad_len = self.max_len - len(wave)
-                wave = np.pad(np.array(wave)) if pad_len else wave
+                wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
             else:  # Random crop
                 start = np.random.randint(0, len(wave) - self.max_len) if self.train else 0
                 wave = wave[start: start + self.max_len]
@@ -63,11 +64,14 @@ class WaveDataset(Dataset):
 
         if self.use_secondary_labels:
             for label in self.secondary_labels[idx]:
-                y[CLASSES.index(label)] = 1
+                try:
+                    y[CLASSES.index(label)] = 1
+                except ValueError:  # Not in considered classes
+                    pass
         return y
 
     def get_targets(self):
-        targets = [self.get_target(i).numpy() for i in range(self.__len__())]
+        targets = [self._get_target(i).numpy() for i in range(self.__len__())]
         return np.array(targets)
 
     def _mixup(self, wave, target):

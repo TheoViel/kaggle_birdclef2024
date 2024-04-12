@@ -35,18 +35,31 @@ def get_transfos(augment=True, normalize=True, strength=1):
                 [
                     BackgroundNoise(
                         p=0.5,
-                        esc50_root=DATA_PATH + "nocall_2023/audio/",
-                        esc50_df_path=DATA_PATH + "nocall_2023/v1_no_call_meta.csv",
+                        root=DATA_PATH + "nocall_2023/",
                         normalize=True,
                     ),
                     BackgroundNoise(
                         p=0.5,
-                        esc50_root=DATA_PATH + "esc50/audio/",
-                        esc50_df_path=DATA_PATH + "esc50_background.csv",
+                        root=DATA_PATH + "esc50/",
                         normalize=True,
                     ),
                 ]
-            ),
+            )
+        elif strength == 2:
+            augs = OneOf(
+                [
+                    BackgroundNoise(
+                        p=0.75,
+                        root=DATA_PATH + "nocall_2023/",
+                        normalize=True,
+                    ),
+                    BackgroundNoise(
+                        p=0.75,
+                        root=DATA_PATH + "esc50/",
+                        normalize=True,
+                    ),
+                ]
+            )
         else:
             raise NotImplementedError
     else:

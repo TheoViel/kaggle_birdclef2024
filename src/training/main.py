@@ -36,7 +36,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         transforms=transforms,
         use_secondary_labels=config.use_secondary_labels,
         normalize=config.normalize,
-        max_len=config.melspec_config["sr"] * config.duration,
+        max_len=config.melspec_config["sample_rate"] * config.duration,
         mixup_config=config.mixup_config,
         train=True,
     )
@@ -46,7 +46,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         transforms=transforms,
         use_secondary_labels=config.use_secondary_labels,
         normalize=config.normalize,
-        max_len=config,
+        max_len=config.melspec_config["sample_rate"] * config.duration,
         train=False,
     )
 
@@ -62,7 +62,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
 
     model = define_model(
         config.name,
-        config.melspec_params,
+        config.melspec_config,
         head=config.head,
         spec_augment_config=config.spec_augment_config,
         num_classes=config.num_classes,
@@ -162,10 +162,9 @@ def k_fold(config, df, log_folder=None, run=None):
             )
             all_metrics.append(metrics)
 
-            if log_folder is None:
-                return
-
             if config.local_rank == 0:
+                if log_folder is None:
+                    return
                 np.save(log_folder + f"pred_val_{fold}", preds)
                 df_val.to_csv(log_folder + f"df_val_{fold}.csv", index=False)
 

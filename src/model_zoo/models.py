@@ -45,7 +45,7 @@ def define_model(
         )
     encoder.name = name
 
-    ft_extractor = FeatureExtractor(melspec_params, spec_augment_config)
+    ft_extractor = FeatureExtractor(melspec_params, spec_augment_config=spec_augment_config)
 
     model = ClsModel(
         encoder,
@@ -102,7 +102,7 @@ class ClsModel(nn.Module):
 
         if head == "freq_att":
             self.freq_att = FreqAttention(
-                in_chans=self.nb_ft,
+                in_chanels=self.nb_ft,
                 # exportable=False,
                 num_classes=num_classes,
                 p=drop_rate,

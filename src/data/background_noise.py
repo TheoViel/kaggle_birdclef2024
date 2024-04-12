@@ -1,13 +1,12 @@
 # Adapted from:
 # https://github.com/VSydorskyy/BirdCLEF_2023_1st_place/blob/main/code_base/augmentations/transforms.py
 
+import os
 import math
+import glob
 import librosa
 import numpy as np
 import pandas as pd
-
-from glob import glob
-from os.path import join as pjoin
 
 # from data.transforms import AudioTransform
 from data.processing import parallel_librosa_load
@@ -60,10 +59,8 @@ class AudioTransform:
 class BackgroundNoise(AudioTransform):
     def __init__(
         self,
-        background_regex=None,
-        esc50_root=None,
-        esc50_df_path=None,
-        esc50_cats_to_include=ESC50_CATS_TO_INCLUDE,
+        root=None,
+        cats_to_include=ESC50_CATS_TO_INCLUDE,
         always_apply=False,
         p=0.5,
         min_level=0.25,
@@ -71,34 +68,28 @@ class BackgroundNoise(AudioTransform):
         sr=32000,
         normalize=True,
         verbose=False,
-        glob_recursive=False,
+        n_samples=1000,
     ):
         super().__init__(always_apply, p)
         assert min_level < max_level
         assert 0 < min_level < 1
         assert 0 < max_level < 1
-        if background_regex is None and (
-            esc50_root is None or esc50_df_path is None
-        ):
-            raise ValueError(
-                "background_regex OR esc50_root AND esc50_df_path should be defined"
-            )
-        if background_regex is not None:
-            sample_names = glob(background_regex, recursive=glob_recursive)
-        else:
-            sample_df = pd.read_csv(esc50_df_path)
-            if esc50_cats_to_include is not None:
-                sample_df = sample_df[
-                    sample_df.category.isin(esc50_cats_to_include)
-                ]
-            sample_names = [
-                pjoin(esc50_root, el) for el in sample_df.filename.tolist()
-            ]
+
+        df_path = glob.glob(os.path.join(root, "*.csv"))[0]
+        df = pd.read_csv(df_path)
+
+        if cats_to_include is not None and "category" in df.columns:
+            df = df[df["category"].isin(cats_to_include)]
+
+        samples = [os.path.join(root, "audio", el) for el in df["filename"].tolist()]
+        if len(samples) > n_samples:
+            samples = np.random.choice(samples, n_samples)
         self.samples = parallel_librosa_load(
-            sample_names,
+            samples,
             return_sr=False,
             sr=sr,
             do_normalize=True,
+            use_tqdm=False,
         )
         self.normalize = normalize
         self.min_max_levels = (min_level, max_level)

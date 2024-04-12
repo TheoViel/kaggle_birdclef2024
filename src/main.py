@@ -55,7 +55,6 @@ class Config:
     """
     Parameters used for training
     """
-
     # General
     seed = 42
     verbose = 1
@@ -65,6 +64,8 @@ class Config:
     # Data
     duration = 5
     aug_strength = 1
+    use_secondary_labels = True
+    normalize = True
 
     melspec_config = {
         "sample_rate": 32000,
@@ -76,7 +77,7 @@ class Config:
     }
 
     mixup_config = {
-        "p": 0,
+        "p": 1.,
         "additive": True,
         "alpha": 4
     }
@@ -85,12 +86,12 @@ class Config:
         "freq_mask": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.3,
+            "p": 0.5,
         },
         "time_mask": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.3,
+            "p": 0.5,
         },
     }
 
@@ -103,11 +104,12 @@ class Config:
     name = "tf_efficientnetv2_s"  # convnextv2_tiny maxvit_tiny_tf_384
     pretrained_weights = None
 
-    num_classes = 282
-    drop_rate = 0.1
-    drop_path_rate = 0.1
+    num_classes = 182
+    drop_rate = 0.2
+    drop_path_rate = 0.2
     n_channels = 1
     head = "gem"
+    increase_stride = False  # for maxvit_512 ?
 
     # Training
     loss_config = {
@@ -118,29 +120,28 @@ class Config:
     }
 
     data_config = {
-        "batch_size": 32,
-        "val_bs": 32,
-        "mix": "cutmix",
+        "batch_size": 64,
+        "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
     }
 
     optimizer_config = {
         "name": "Ranger",
-        "lr": 5e-4,
+        "lr": 1e-3,
         "warmup_prop": 0.0,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.1,
         "weight_decay": 0.0,
     }
 
-    epochs = 40
+    epochs = 20
 
     use_fp16 = True
     verbose = 1
-    verbose_eval = 50 if data_config["batch_size"] >= 16 else 100
+    verbose_eval = 100
 
-    fullfit = False
+    fullfit = True
     n_fullfit = 1
 
 
@@ -198,7 +199,7 @@ if __name__ == "__main__":
 
     from training.main import k_fold
 
-    df = df.head(1000)
+    # df = df.head(1000)
     k_fold(config, df, log_folder=log_folder, run=run)
 
     if config.local_rank == 0:

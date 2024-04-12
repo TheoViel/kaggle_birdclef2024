@@ -26,11 +26,11 @@ class FeatureExtractor(nn.Module):
     def __init__(
         self,
         params,
+        spec_augment_config=None,
         top_db=80,
         exportable=False,
         quantizable=False,
         spec_extractor="melspec",
-        spec_augment_config=None,
     ):
         """
         params={

@@ -38,17 +38,18 @@ def create_target_path(target_root, source_path):
 
 def get_load_librosa_save_h5py(do_normalize, **kwargs):
     def load_librosa_save_h5py(load_path, save_path):
-        if not os.path.exists(save_path):
-            try:
-                au, sr = librosa.load(load_path, **kwargs)
-                if do_normalize:
-                    au = librosa.util.normalize(au)
-                with h5py.File(save_path, "w") as data_file:
-                    data_file.create_dataset("au", data=au)
-                    data_file.create_dataset("sr", data=sr)
-                    data_file.create_dataset("do_normalize", data=int(do_normalize))
-            except Exception as e:
-                print(f"Failed to load {load_path} with {e}")
+        if os.path.exists(save_path):
+            return
+
+        au, sr = librosa.load(load_path, **kwargs)
+        if do_normalize:
+            au = librosa.util.normalize(au)
+        with h5py.File(save_path, "w") as data_file:
+            data_file.create_dataset("au", data=au)
+            # data_file.create_dataset("sr", data=sr)
+            # data_file.create_dataset("do_normalize", data=int(do_normalize))
+        # except Exception as e:
+        #         print(f"Failed to load {load_path} with {e}")
 
     return load_librosa_save_h5py
 
@@ -122,10 +123,11 @@ def parallel_librosa_load(
     return_sr=True,
     return_audio=True,
     do_normalize=False,
+    use_tqdm=True,
     **kwargs,
 ):
     assert return_sr or return_audio
-    complete_out = ProgressParallel(n_jobs=n_cores, total=len(audio_pathes))(
+    complete_out = ProgressParallel(n_jobs=n_cores, total=len(audio_pathes), use_tqdm=use_tqdm)(
         delayed(get_librosa_load(do_normalize=do_normalize, **kwargs))(el_path)
         for el_path in audio_pathes
     )

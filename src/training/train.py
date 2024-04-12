@@ -42,13 +42,12 @@ def evaluate(
     """
     model.eval()
     val_losses = []
-    preds, preds_aux = [], []
+    preds = []
 
     with torch.no_grad():
         for x, y, w in val_loader:
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred, y_pred_aux = model(x.cuda())
-
+                y_pred = model(x.cuda())
                 loss = loss_fct(y_pred.detach(), y.cuda())
 
             val_losses.append(loss.detach())
@@ -57,9 +56,7 @@ def evaluate(
                 y_pred = y_pred.sigmoid()
             elif loss_config["activation"] == "softmax":
                 y_pred = y_pred.softmax(-1)
-
             preds.append(y_pred.detach())
-            preds_aux.append(y_pred_aux.detach())
 
     val_losses = torch.stack(val_losses)
     preds = torch.cat(preds, 0)
@@ -165,6 +162,8 @@ def fit(
 
             with torch.cuda.amp.autocast(enabled=use_fp16):
                 y_pred = model(x)
+
+                # print(x.size(), y_pred.size(), y.size())
                 loss = loss_fct(y_pred, y)
 
             scaler.scale(loss).backward()
@@ -199,7 +198,7 @@ def fit(
                     avg_losses = sync_across_gpus(avg_losses, world_size)
                 avg_loss = avg_losses.cpu().numpy().mean()
 
-                preds, preds_aux, avg_val_loss = evaluate(
+                preds, avg_val_loss = evaluate(
                     model,
                     val_loader,
                     loss_config,
