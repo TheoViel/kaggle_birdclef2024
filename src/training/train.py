@@ -47,7 +47,7 @@ def evaluate(
     with torch.no_grad():
         for x, y, w in val_loader:
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred = model(x.cuda())
+                y_pred, _ = model(x.cuda())
                 loss = loss_fct(y_pred.detach(), y.cuda())
 
             val_losses.append(loss.detach())
@@ -161,7 +161,7 @@ def fit(
             y = y.cuda()
 
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred = model(x)
+                y_pred, y = model(x, y)
 
                 # print(x.size(), y_pred.size(), y.size())
                 loss = loss_fct(y_pred, y)

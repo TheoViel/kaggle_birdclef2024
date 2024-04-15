@@ -12,6 +12,7 @@ from torchaudio.transforms import (
     FrequencyMasking,
     TimeMasking,
 )
+from data.mix import Mixup
 
 try:
     from nnAudio.features import CQT1992v2
@@ -26,7 +27,7 @@ class FeatureExtractor(nn.Module):
     def __init__(
         self,
         params,
-        spec_augment_config=None,
+        aug_config=None,
         top_db=80,
         exportable=False,
         quantizable=False,
@@ -63,20 +64,30 @@ class FeatureExtractor(nn.Module):
             NormalizeMelSpec(exportable=exportable),
         )
 
-        if spec_augment_config is not None:
-            self.freq_mask = CustomFreqMasking(**spec_augment_config["freq_mask"])
-            self.time_mask = CustomTimeMasking(**spec_augment_config["time_mask"])
+        if aug_config is not None:
+            self.freq_mask = CustomFreqMasking(**aug_config["specaug_freq"])
+            self.time_mask = CustomTimeMasking(**aug_config["specaug_time"])
+            self.mixup_audio = Mixup(p=aug_config["mixup"].get("p_audio", 0), **aug_config["mixup"])
+            self.mixup_spec = Mixup(p=aug_config["mixup"].get("p_spec", 0), **aug_config["mixup"])
         else:
             self.time_mask = nn.Identity()
             self.freq_mask = nn.Identity()
+            self.mixup_audio = nn.Identity()
+            self.mixup_spec = nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x, y=None):
+        if self.training:
+            x, y = self.mixup_audio(x, y)
+
         melspec = self.extractor(x)
 
-        self.freq_mask(melspec)
-        self.time_mask(melspec)
+        if self.training:
+            melspec, y = self.mixup_spec(melspec, y)
 
-        return melspec
+            self.freq_mask(melspec)
+            self.time_mask(melspec)
+
+        return melspec, y
 
 
 class NormalizeMelSpec(nn.Module):

@@ -76,23 +76,25 @@ class Config:
         "normalized": True,
     }
 
-    mixup_config = {
-        "p": 1.,
-        "additive": True,
-        "alpha": 4
-    }
-
-    spec_augment_config = {
-        "freq_mask": {
+    aug_config = {
+        "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
             "p": 0.5,
         },
-        "time_mask": {
+        "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
             "p": 0.5,
         },
+        "mixup":
+        {
+            "p_audio": 0.75,
+            "p_spec": 0.25,
+            "additive": True,
+            "alpha": 4,
+            "num_classes": 182,
+        }
     }
 
     # k-fold

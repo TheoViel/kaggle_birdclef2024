@@ -37,7 +37,6 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         use_secondary_labels=config.use_secondary_labels,
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.duration,
-        mixup_config=config.mixup_config,
         train=True,
     )
 
@@ -64,7 +63,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         config.name,
         config.melspec_config,
         head=config.head,
-        spec_augment_config=config.spec_augment_config,
+        aug_config=config.aug_config,
         num_classes=config.num_classes,
         n_channels=config.n_channels,
         drop_rate=config.drop_rate,

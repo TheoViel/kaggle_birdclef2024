@@ -14,7 +14,7 @@ def define_model(
     name,
     melspec_params,
     head="freq_att",
-    spec_augment_config=None,
+    aug_config=None,
     num_classes=182,
     n_channels=1,
     drop_rate=0,
@@ -45,7 +45,7 @@ def define_model(
         )
     encoder.name = name
 
-    ft_extractor = FeatureExtractor(melspec_params, spec_augment_config=spec_augment_config)
+    ft_extractor = FeatureExtractor(melspec_params, aug_config=aug_config)
 
     model = ClsModel(
         encoder,
@@ -208,7 +208,7 @@ class ClsModel(nn.Module):
         fts = self.dropout(fts)
         return self.logits(fts)
 
-    def forward(self, x):
+    def forward(self, x, y=None):
         """
         Forward function for the model.
 
@@ -218,7 +218,7 @@ class ClsModel(nn.Module):
         Returns:
             torch.Tensor: Logits for the primary classes of shape [batch_size x num_classes].
         """
-        melspec = self.ft_extractor(x).unsqueeze(1)
-        fts = self.encoder(melspec)
+        melspec, y = self.ft_extractor(x, y)
+        fts = self.encoder(melspec.unsqueeze(1))
         logits = self.get_logits(fts)
-        return logits
+        return logits, y

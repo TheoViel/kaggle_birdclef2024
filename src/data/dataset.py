@@ -17,7 +17,6 @@ class WaveDataset(Dataset):
         use_secondary_labels=True,
         normalize=True,
         max_len=32000,
-        mixup_config=None,
         train=False,
     ):
         super().__init__()
@@ -32,7 +31,6 @@ class WaveDataset(Dataset):
         # Parameters
         self.use_secondary_labels = use_secondary_labels
         self.normalize = normalize
-        self.mixup_config = mixup_config if mixup_config is not None else {}
         self.max_len = max_len
         self.train = train
 
@@ -59,7 +57,7 @@ class WaveDataset(Dataset):
         y = torch.zeros(len(CLASSES)).float()
 
         label = self.labels[idx]
-        if label != "nocall":
+        if label not in ["nocall", "test_soundscapes"]:
             y[CLASSES.index(self.labels[idx])] = 1
 
         if self.use_secondary_labels:
@@ -74,26 +72,6 @@ class WaveDataset(Dataset):
         targets = [self._get_target(i).numpy() for i in range(self.__len__())]
         return np.array(targets)
 
-    def _mixup(self, wave, target):
-        mixup_idx = np.random.randint(0, self.__len__())
-
-        mixup_wave = self._get_wave(mixup_idx)
-        mixup_target = self._get_target(mixup_idx)
-
-        mix_weight = np.random.beta(
-            self.mixup_config["alpha"], self.mixup_config["alpha"]
-        )
-        wave = mix_weight * mixup_wave + (1 - mix_weight) * wave
-
-        if self.mixup_config.get("additive", True):
-            target = mixup_target + target
-        else:
-            target = mix_weight * mixup_target + (1 - mix_weight) * target
-
-        target = torch.clamp(target, min=0, max=1.0)
-
-        return wave, target
-
     def __getitem__(self, idx):
         wave = self._get_wave(idx)
 
@@ -102,11 +80,51 @@ class WaveDataset(Dataset):
 
         y = self._get_target(idx)
 
-        if np.random.random() < self.mixup_config.get("p", 0):
-            wave, y = self._mixup(wave, y)
-
         if self.transforms is not None:
             wave = self.transforms(wave)
 
         wave = torch.from_numpy(wave)
         return wave, y, 1  # 1 is a placeholder for sample weight
+
+
+class WaveInfDataset(Dataset):
+    def __init__(
+        self,
+        df,
+        normalize=True,
+        max_len=32000,
+    ):
+        super().__init__()
+        self.df = df.reset_index(drop=True)
+        self.paths = df["path"].values
+        self.slices = df["slice"].values
+        self.normalize = normalize
+        self.max_len = max_len
+
+        self.waves = {}
+
+    def __len__(self):
+        return len(self.df)
+
+    def _get_wave(self, idx):
+        try:
+            return self.waves[self.paths[idx]]
+        except KeyError:
+            wave, sr = librosa.load(self.paths[idx], sr=32000)
+            self.waves[self.paths[idx]] = wave
+        return wave
+
+    def __getitem__(self, idx):
+        wave = self._get_wave(idx)
+
+        wave = wave[self.slices[idx][0]: self.slices[idx][1]]
+
+        if len(wave) <= self.max_len:  # Pad
+            pad_len = self.max_len - len(wave)
+            wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
+
+        if self.normalize:
+            wave = librosa.util.normalize(wave)
+
+        wave = torch.from_numpy(wave)
+        return wave, 1, 1
