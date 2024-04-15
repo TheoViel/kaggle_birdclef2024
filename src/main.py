@@ -103,7 +103,7 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "tf_efficientnetv2_s"  # convnextv2_tiny maxvit_tiny_tf_384
+    name = "tf_efficientnetv2_b0"  # convnextv2_tiny maxvit_tiny_tf_384 tf_efficientnetv2_s
     pretrained_weights = None
 
     num_classes = 182

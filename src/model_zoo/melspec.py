@@ -20,6 +20,7 @@ try:
     from nnAudio.features.stft import STFTBase
     from nnAudio.utils import create_fourier_kernels
 except ImportError:
+    STFTBase = nn.Module
     print("`nnAudio` was not imported")
 
 
@@ -361,7 +362,7 @@ class QuantizableSTFT(STFTBase):
             )  # +0.0 removes -0.0 elements, which leads to error in calculating phase
 
 
-class QuantizableAmplitudeToDB(torch.nn.Module):
+class QuantizableAmplitudeToDB(nn.Module):
     r"""Turn a tensor from the power/amplitude scale to the decibel scale.
 
     .. devices:: CPU CUDA

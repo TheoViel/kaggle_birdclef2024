@@ -4,12 +4,16 @@ import sys
 import math
 import json
 import shutil
-import neptune
 import datetime
 import subprocess
 import numpy as np
 
 from params import NEPTUNE_PROJECT
+
+try:
+    import neptune
+except ImportError:
+    pass
 
 
 class Config:

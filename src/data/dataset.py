@@ -111,6 +111,10 @@ class WaveInfDataset(Dataset):
             return self.waves[self.paths[idx]]
         except KeyError:
             wave, sr = librosa.load(self.paths[idx], sr=32000)
+
+            if len(self.waves) > 100:
+                self.waves = {}  # clear memory
+
             self.waves[self.paths[idx]] = wave
         return wave
 
