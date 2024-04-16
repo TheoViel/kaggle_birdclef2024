@@ -215,13 +215,15 @@ def fit(
                     step_ = step * world_size
 
                     preds = preds[:len(val_dataset)]
-                    truth = val_dataset.get_targets()
+                    truth, truth_s = val_dataset.get_targets()
                     auc = macro_auc(truth, preds)
+                    auc_s = macro_auc(truth_s, preds)
 
                     s = f"Epoch {epoch:02d}/{epochs:02d} (step {step_:04d}) \t"
                     s = s + f"lr={lr:.1e} \t t={dt:.0f}s \t loss={avg_loss:.3f}"
                     s = s + f"\t val_loss={avg_val_loss:.3f}" if avg_val_loss else s
                     s = s + f"    auc={auc:.3f}" if auc else s
+                    s = s + f"    auc_s={auc_s:.3f}" if auc_s else s
                     print(s)
 
                 if run is not None:
@@ -231,6 +233,7 @@ def fit(
                     if not np.isnan(avg_val_loss):
                         run[f"fold_{fold}/val/loss"].log(avg_val_loss, step=step_)
                     run[f"fold_{fold}/val/auc"].log(auc, step=step_)
+                    run[f"fold_{fold}/val/auc_s"].log(auc_s, step=step_)
 
                 start_time = time.time()
                 avg_losses = []

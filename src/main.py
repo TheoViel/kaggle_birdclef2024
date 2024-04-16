@@ -63,8 +63,8 @@ class Config:
 
     # Data
     duration = 5
-    aug_strength = 2
-    use_secondary_labels = True
+    aug_strength = 1
+    secondary_labels_weight = 0.5
     normalize = True
 
     melspec_config = {
@@ -89,7 +89,7 @@ class Config:
         },
         "mixup":
         {
-            "p_audio": 0.75,
+            "p_audio": 0.5,
             "p_spec": 0.25,
             "additive": True,
             "alpha": 4,
@@ -100,7 +100,7 @@ class Config:
     # k-fold
     k = 4
     folds_file = f"../input/folds_{k}.csv"
-    selected_folds = [0]  # , 1, 2, 3]
+    selected_folds = [0, 1, 2, 3]
 
     # Model
     name = "tf_efficientnetv2_s"  # convnextv2_tiny maxvit_tiny_tf_384
@@ -137,7 +137,7 @@ class Config:
         "weight_decay": 0.,
     }
 
-    epochs = 25
+    epochs = 20
 
     use_fp16 = True
     verbose = 1

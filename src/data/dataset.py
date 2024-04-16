@@ -14,7 +14,7 @@ class WaveDataset(Dataset):
         self,
         df,
         transforms=None,
-        use_secondary_labels=True,
+        secondary_labels_weight=0.,
         normalize=True,
         max_len=32000,
         train=False,
@@ -29,7 +29,7 @@ class WaveDataset(Dataset):
         self.paths = df["path_ft"].values
 
         # Parameters
-        self.use_secondary_labels = use_secondary_labels
+        self.secondary_labels_weight = secondary_labels_weight
         self.normalize = normalize
         self.max_len = max_len
         self.train = train
@@ -53,24 +53,27 @@ class WaveDataset(Dataset):
 
             return wave
 
-    def _get_target(self, idx):
+    def _get_target(self, idx, use_secondary=False):
         y = torch.zeros(len(CLASSES)).float()
 
         label = self.labels[idx]
         if label not in ["nocall", "test_soundscapes"]:
             y[CLASSES.index(self.labels[idx])] = 1
 
-        if self.use_secondary_labels:
+        if self.secondary_labels_weight or use_secondary:
             for label in self.secondary_labels[idx]:
                 try:
-                    y[CLASSES.index(label)] = 1
+                    y[CLASSES.index(label)] = 1 if use_secondary else self.secondary_labels_weight
                 except ValueError:  # Not in considered classes
                     pass
         return y
 
     def get_targets(self):
         targets = [self._get_target(i).numpy() for i in range(self.__len__())]
-        return np.array(targets)
+        targets_sec = [
+            self._get_target(i, use_secondary=True).numpy() for i in range(self.__len__())
+        ]
+        return np.array(targets), np.array(targets_sec)
 
     def __getitem__(self, idx):
         wave = self._get_wave(idx)

@@ -60,18 +60,21 @@ def gain_transfos(p=1.0):
     )
 
 
-def background_transfos(p=1.0):
+def background_transfos(strength=1, p=1.0):
     paths = [
         DATA_PATH + "nocall_2023/",
         DATA_PATH + "esc50/",
-        DATA_PATH + "background_noise/birdclef2021_nocall/",
-        DATA_PATH + "background_noise/birdclef2020_nocall/",
-        DATA_PATH + "background_noise/freefield/",
-        DATA_PATH + "background_noise/warblrb/",
-        DATA_PATH + "background_noise/birdvox/",
-        DATA_PATH + "background_noise/rainforest/",
-        DATA_PATH + "background_noise/environment/",
     ]
+    if strength > 2:
+        paths += [
+            DATA_PATH + "background_noise/birdclef2021_nocall/",
+            DATA_PATH + "background_noise/birdclef2020_nocall/",
+            DATA_PATH + "background_noise/freefield/",
+            DATA_PATH + "background_noise/warblrb/",
+            DATA_PATH + "background_noise/birdvox/",
+            DATA_PATH + "background_noise/rainforest/",
+            DATA_PATH + "background_noise/environment/",
+        ]
     paths = [p for p in paths if os.path.exists(p)]
 
     return OneOf(
@@ -80,6 +83,7 @@ def background_transfos(p=1.0):
                 root=path,
                 normalize=True,
                 p=p,
+                n_samples=300 if len(paths) > 3 else 1000,
             )
             for path in paths
         ]
@@ -101,11 +105,11 @@ def get_transfos(augment=True, normalize=True, strength=1):
         return None
 
     if strength == 1:
-        transfos = background_transfos(p=0.5)
+        transfos = background_transfos(strength=1, p=0.5)
     elif strength == 2:
         transfos = Compose(
             [
-                background_transfos(p=0.5),
+                background_transfos(strength=2, p=0.5),
                 gain_transfos(p=0.5),
                 noise_transfos(p=0.25),
             ]
@@ -113,7 +117,7 @@ def get_transfos(augment=True, normalize=True, strength=1):
     elif strength == 3:
         transfos = Compose(
             [
-                background_transfos(p=0.75),
+                background_transfos(strength=2, p=0.75),
                 gain_transfos(p=0.75),
                 noise_transfos(p=0.5),
             ]

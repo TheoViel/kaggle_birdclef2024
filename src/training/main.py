@@ -28,13 +28,12 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
     Returns:
         tuple: A tuple containing predictions and metrics.
     """
-    transforms = get_transfos(
-        strength=config.aug_strength,
-    )
+    transforms = get_transfos(strength=config.aug_strength)
+
     train_dataset = WaveDataset(
         df_train,
         transforms=transforms,
-        use_secondary_labels=config.use_secondary_labels,
+        secondary_labels_weight=config.secondary_labels_weight,
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.duration,
         train=True,
@@ -42,8 +41,6 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
 
     val_dataset = WaveDataset(
         df_val,
-        transforms=transforms,
-        use_secondary_labels=config.use_secondary_labels,
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.duration,
         train=False,

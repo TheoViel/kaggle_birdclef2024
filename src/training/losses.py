@@ -141,7 +141,7 @@ class BirdLoss(nn.Module):
         """
         if self.config["name"] == "ce":
             y = y.squeeze(1)
-        elif self.config["name"] in ["bce", "image"]:
+        elif self.config["name"] in ["bce"]:
             y = y.float()
             pred = pred.float().view(y.size())
             if self.eps:
