@@ -63,7 +63,7 @@ class Config:
 
     # Data
     duration = 5
-    aug_strength = 3
+    aug_strength = 2
     use_secondary_labels = True
     normalize = True
 
@@ -80,12 +80,12 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.5,
+            "p": 0.25,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.5,
+            "p": 0.25,
         },
         "mixup":
         {
@@ -137,7 +137,7 @@ class Config:
         "weight_decay": 0.,
     }
 
-    epochs = 30
+    epochs = 25
 
     use_fp16 = True
     verbose = 1

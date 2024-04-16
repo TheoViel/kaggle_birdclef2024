@@ -1,7 +1,6 @@
-import glob
+import os
 import numpy as np
-
-from audiomentations import Gain, GainTransition, AddBackgroundNoise
+from audiomentations import Gain, GainTransition
 
 from data.noise_augs import (
     NoiseInjection,
@@ -62,44 +61,27 @@ def gain_transfos(p=1.0):
 
 
 def background_transfos(p=1.0):
-    birdclef2021_nocall = glob.glob("../input/background_noise/birdclef2021_nocall/*")
-    birdclef2020_nocall = glob.glob("../input/background_noise/birdclef2020_nocall/*")
-    freefield = glob.glob("../input/background_noise/freefield/*")
-    warblrb = glob.glob("../input/background_noise/warblrb/*")
-    birdvox = glob.glob("../input/background_noise/birdvox/*")
-    rainforest = glob.glob("../input/background_noise/rainforest/*")
-    environment = glob.glob("../input/background_noise/environment/*")
+    paths = [
+        DATA_PATH + "nocall_2023/",
+        DATA_PATH + "esc50/",
+        DATA_PATH + "background_noise/birdclef2021_nocall/",
+        DATA_PATH + "background_noise/birdclef2020_nocall/",
+        DATA_PATH + "background_noise/freefield/",
+        DATA_PATH + "background_noise/warblrb/",
+        DATA_PATH + "background_noise/birdvox/",
+        DATA_PATH + "background_noise/rainforest/",
+        DATA_PATH + "background_noise/environment/",
+    ]
+    paths = [p for p in paths if os.path.exists(p)]
 
     return OneOf(
         [
             BackgroundNoise(
-                root=DATA_PATH + "nocall_2023/",
+                root=path,
                 normalize=True,
                 p=p,
-            ),
-            BackgroundNoise(
-                root=DATA_PATH + "esc50/",
-                normalize=True,
-                p=p,
-            ),
-            lambda x: AddBackgroundNoise(
-                birdclef2021_nocall + birdclef2020_nocall,
-                min_snr_in_db=0,
-                max_snr_in_db=3,
-                p=p,
-            )(x, sample_rate=32000),
-            lambda x: AddBackgroundNoise(
-                freefield + warblrb + birdvox,
-                min_snr_in_db=0,
-                max_snr_in_db=3,
-                p=p,
-            )(x, sample_rate=32000),
-            lambda x: AddBackgroundNoise(
-                rainforest + environment,
-                min_snr_in_db=0,
-                max_snr_in_db=3,
-                p=p
-            )(x, sample_rate=32000),
+            )
+            for path in paths
         ]
     )
 
