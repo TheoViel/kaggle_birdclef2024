@@ -63,7 +63,7 @@ class Config:
 
     # Data
     duration = 5
-    aug_strength = 1
+    aug_strength = 3
     use_secondary_labels = True
     normalize = True
 
@@ -100,10 +100,10 @@ class Config:
     # k-fold
     k = 4
     folds_file = f"../input/folds_{k}.csv"
-    selected_folds = [0, 1, 2, 3]
+    selected_folds = [0]  # , 1, 2, 3]
 
     # Model
-    name = "tf_efficientnetv2_b0"  # convnextv2_tiny maxvit_tiny_tf_384 tf_efficientnetv2_s
+    name = "tf_efficientnetv2_s"  # convnextv2_tiny maxvit_tiny_tf_384
     pretrained_weights = None
 
     num_classes = 182
@@ -130,18 +130,18 @@ class Config:
 
     optimizer_config = {
         "name": "Ranger",
-        "lr": 1e-3,
+        "lr": 5e-3,
         "warmup_prop": 0.0,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.1,
-        "weight_decay": 0.0,
+        "weight_decay": 0.,
     }
 
-    epochs = 20
+    epochs = 30
 
     use_fp16 = True
     verbose = 1
-    verbose_eval = 100
+    verbose_eval = 200
 
     fullfit = True
     n_fullfit = 1
