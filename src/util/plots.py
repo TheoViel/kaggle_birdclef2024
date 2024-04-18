@@ -19,7 +19,8 @@ def display_audio(audio, sr=32000, title="", duration=10):
         title = title if len(title) else audio
         audio = load_audio(audio, sr=sr)
 
-    audio = audio[: sr * duration]
+    if duration:
+        audio = audio[: sr * duration]
 
     plt.figure(figsize=(12, 3))
     plt.title(title)

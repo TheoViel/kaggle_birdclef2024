@@ -123,7 +123,7 @@ class ClsModel(nn.Module):
                 conv = self.encoder.stem[0]
             elif "coat_lite" in self.encoder.name:
                 conv = self.encoder.patch_embed1.proj
-            elif "coatnet" in self.encoder.name:
+            elif "coatnet" in self.encoder.name or "nfnet" in self.encoder.name:
                 conv = self.encoder.stem.conv1
             elif "efficientnet" in self.encoder.name:
                 conv = self.encoder.conv_stem
@@ -157,7 +157,7 @@ class ClsModel(nn.Module):
                 self.encoder.stem[0] = new_conv
             elif "coat_lite" in self.encoder.name:
                 self.encoder.patch_embed1.proj = new_conv
-            elif "coatnet" in self.encoder.name:
+            elif "coatnet" in self.encoder.name or "nfnet" in self.encoder.name:
                 self.encoder.stem.conv1 = new_conv
             elif "efficientnet" in self.encoder.name:
                 self.encoder.conv_stem = new_conv

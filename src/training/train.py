@@ -145,7 +145,7 @@ def fit(
 
     loss_fct = BirdLoss(loss_config)  # TODO
 
-    auc = 0
+    auc, auc_s = 0, 0
     step, step_ = 1, 1
     avg_losses = []
     start_time = time.time()
@@ -246,4 +246,4 @@ def fit(
     if distributed:
         torch.distributed.barrier()
 
-    return preds, {"auc": auc}
+    return preds, {"auc": auc, "auc_s": auc_s}

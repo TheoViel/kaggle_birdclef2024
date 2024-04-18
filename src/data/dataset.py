@@ -17,6 +17,7 @@ class WaveDataset(Dataset):
         secondary_labels_weight=0.,
         normalize=True,
         max_len=32000,
+        self_mixup=False,
         train=False,
     ):
         super().__init__()
@@ -32,6 +33,7 @@ class WaveDataset(Dataset):
         self.secondary_labels_weight = secondary_labels_weight
         self.normalize = normalize
         self.max_len = max_len
+        self.self_mixup = self_mixup
         self.train = train
 
     def __len__(self):
@@ -45,8 +47,19 @@ class WaveDataset(Dataset):
                 pad_len = self.max_len - len(wave)
                 wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
             else:  # Random crop
-                start = np.random.randint(0, len(wave) - self.max_len) if self.train else 0
-                wave = wave[start: start + self.max_len]
+                if self.self_mixup and len(wave) > self.max_len * 2:
+                    start_1 = np.random.randint(0, len(wave) // 2 - self.max_len)
+                    start_2 = np.random.randint(start_1 + self.max_len, len(wave) - self.max_len)
+
+                    # print(start_1, start_2)
+
+                    wave = (
+                        wave[start_1: start_1 + self.max_len] +
+                        wave[start_2: start_2 + self.max_len]
+                    ) / 2
+                else:
+                    start = np.random.randint(0, len(wave) - self.max_len) if self.train else 0
+                    wave = wave[start: start + self.max_len]
 
             if self.normalize:
                 wave = librosa.util.normalize(wave)
@@ -77,6 +90,7 @@ class WaveDataset(Dataset):
 
     def __getitem__(self, idx):
         wave = self._get_wave(idx)
+        # wave_no_aug = torch.from_numpy(wave.copy())
 
         if self.normalize:
             wave = librosa.util.normalize(wave)
@@ -87,7 +101,7 @@ class WaveDataset(Dataset):
             wave = self.transforms(wave)
 
         wave = torch.from_numpy(wave)
-        return wave, y, 1  # 1 is a placeholder for sample weight
+        return wave, y, 1  # wave_no_aug  # 1 is a placeholder for sample weight
 
 
 class WaveInfDataset(Dataset):

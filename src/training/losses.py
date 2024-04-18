@@ -88,8 +88,46 @@ class SmoothCrossEntropyLoss(nn.Module):
             )
 
         loss = -targets * F.log_softmax(inputs, dim=1)
-        loss = loss.sum(-1)
+        # loss = loss.sum(-1)
+        return loss
 
+
+class SmoothBCEWithLogitsLoss(nn.Module):
+    """
+    BCEWithLogitsLoss loss with label smoothing.
+    """
+
+    def __init__(self, eps=0.0):
+        """
+        Constructor.
+        Args:
+            eps (float, optional): Smoothing value. Defaults to 0.
+        """
+        super(SmoothBCEWithLogitsLoss, self).__init__()
+        self.eps = eps
+
+    def forward(self, inputs, targets):
+        """
+        Computes the loss.
+        Args:
+            inputs (torch tensor [bs x n]): Predictions.
+            targets (torch tensor [bs x n]): Targets.
+        Returns:
+            torch tensor [bs]: Loss values.
+        """
+        assert inputs.size() == targets.size()
+
+        if self.eps > 0:
+            targets = torch.clamp(targets, self.eps, 1 - self.eps)
+
+        # loss = - (
+        #     targets * inputs.sigmoid().log() +
+        #     (1 - targets) * (1 - inputs.sigmoid()).log()
+        # )
+        loss = (
+            targets * (1 + (- inputs).exp()).log() +
+            (1 - targets) * (1 + inputs.exp()).log()
+        )
         return loss
 
 
@@ -118,9 +156,14 @@ class BirdLoss(nn.Module):
         self.device = device
 
         self.eps = config.get("smoothing", 0)
+        self.top_k = config.get("top_k", 0)
 
         if config["name"] == "bce":
-            self.loss = nn.BCEWithLogitsLoss(reduction="none")
+            if self.eps:
+                self.loss = SmoothBCEWithLogitsLoss(eps=self.eps)
+            else:
+                self.loss = nn.BCEWithLogitsLoss(reduction="none")
+
         elif config["name"] == "ce":
             self.loss = SmoothCrossEntropyLoss(eps=self.eps)
         elif config["name"] == "focal":
@@ -144,12 +187,18 @@ class BirdLoss(nn.Module):
         elif self.config["name"] in ["bce"]:
             y = y.float()
             pred = pred.float().view(y.size())
-            if self.eps:
-                y = torch.clamp(y, self.eps, 1 - self.eps)
         else:
             pass
 
         return pred, y
+
+    def top_k_mask(self, pred, y):
+        weights = torch.ones_like(pred, device=pred.device)
+        # Zero top_k preds weight
+        weights.scatter_(1, torch.topk(pred, k=self.top_k).indices, torch.zeros_like(pred))
+        # Ensure positive labels are weighted
+        weights = torch.clamp(weights + (y > 0).float(), 0., 1.)
+        return weights
 
     def forward(self, pred, y):
         """
@@ -162,9 +211,16 @@ class BirdLoss(nn.Module):
         Returns:
             torch.Tensor: Loss value.
         """
-        (
-            pred,
-            y,
-        ) = self.prepare(pred, y)
+        pred, y = self.prepare(pred, y)
         loss = self.loss(pred, y)
+
+        # print(loss.size())
+
+        if self.top_k:
+            mask = self.top_k_mask(pred, y)
+            loss *= mask
+
+        # if len(loss.size()) > 2:
+        #     loss = loss.sum(-1)
+
         return loss.mean()

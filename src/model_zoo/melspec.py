@@ -73,8 +73,8 @@ class FeatureExtractor(nn.Module):
         else:
             self.time_mask = nn.Identity()
             self.freq_mask = nn.Identity()
-            self.mixup_audio = nn.Identity()
-            self.mixup_spec = nn.Identity()
+            self.mixup_audio = lambda x, y: (nn.Identity()(x), nn.Identity()(y))
+            self.mixup_spec = lambda x, y: (nn.Identity()(x), nn.Identity()(y))
 
     def forward(self, x, y=None):
         if self.training:
@@ -87,6 +87,8 @@ class FeatureExtractor(nn.Module):
 
             self.freq_mask(melspec)
             self.time_mask(melspec)
+
+        # print(y.sum(-1))
 
         return melspec, y
 

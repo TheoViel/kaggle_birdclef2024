@@ -64,7 +64,7 @@ class Config:
     # Data
     duration = 5
     aug_strength = 1
-    secondary_labels_weight = 0.5
+    self_mixup = True
     normalize = True
 
     melspec_config = {
@@ -80,16 +80,16 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.25,
+            "p": 0.5,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.25,
+            "p": 0.5,
         },
         "mixup":
         {
-            "p_audio": 0.5,
+            "p_audio": 0.75,
             "p_spec": 0.25,
             "additive": True,
             "alpha": 4,
@@ -103,7 +103,7 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "tf_efficientnetv2_s"  # convnextv2_tiny maxvit_tiny_tf_384
+    name = "eca_nfnet_l0"  # convnextv2_tiny maxvit_tiny_tf_384
     pretrained_weights = None
 
     num_classes = 182
@@ -117,9 +117,11 @@ class Config:
     loss_config = {
         "name": "bce",
         "weighted": False,
-        "smoothing": 0.0,
-        "activation": "sigmoid",
+        "smoothing": 0.,
+        "top_k": 0,
+        "activation": "sigmoid",  # "softmax"
     }
+    secondary_labels_weight = 1. if loss_config["name"] == "bce" else 0.5  # 0.5 for ce / 1. for bce
 
     data_config = {
         "batch_size": 64,

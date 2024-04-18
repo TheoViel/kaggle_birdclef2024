@@ -36,11 +36,13 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         secondary_labels_weight=config.secondary_labels_weight,
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.duration,
+        self_mixup=config.self_mixup,
         train=True,
     )
 
     val_dataset = WaveDataset(
         df_val,
+        # transforms=get_transfos(strength=1),
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.duration,
         train=False,
@@ -164,7 +166,7 @@ def k_fold(config, df, log_folder=None, run=None):
                 np.save(log_folder + f"pred_val_{fold}", preds)
                 df_val.to_csv(log_folder + f"df_val_{fold}.csv", index=False)
 
-    if config.local_rank == 0:
+    if config.local_rank == 0 and len(config.selected_folds):
         print("\n-------------   CV Scores  -------------\n")
 
         for k in all_metrics[0].keys():
@@ -179,7 +181,7 @@ def k_fold(config, df, log_folder=None, run=None):
         np.save(log_folder + f"pred_val_{fold}", preds)
         df_val.to_csv(log_folder + f"df_val_{fold}.csv", index=False)
 
-    if config.fullfit and len(config.selected_folds) == 4:
+    if config.fullfit and len(config.selected_folds) in [0, 4]:
         for ff in range(config.n_fullfit):
             if config.local_rank == 0:
                 print(

@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 import torch.nn as nn
 
 
@@ -33,14 +32,19 @@ class Mixup(nn.Module):
             torch.Tensor: Mixed target labels for the main task.
             torch.Tensor: Mixed target labels for the auxiliary task.
         """
-        if not np.random.random() < self.p:
+        if self.p <= 0:
+            # if not torch.rand(1).item() < self.p:
             return x, y
 
         bs = x.shape[0]
         n_dims = len(x.shape)
+
         perm = torch.randperm(bs)
+        perm = torch.where(torch.rand(bs) < self.p, perm, torch.arange(bs))
+
         # print(perm)
         coeffs = self.beta_distribution.rsample(torch.Size((bs,))).to(x.device)
+        # coeffs = torch.where(torch.rand(bs).to(coeffs.device) < self.p, coeffs, 1)
 
         if n_dims == 2:
             x = coeffs.view(-1, 1) * x + (1 - coeffs.view(-1, 1)) * x[perm]
