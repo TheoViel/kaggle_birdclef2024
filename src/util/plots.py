@@ -39,7 +39,8 @@ def plot_spectrogram(melspec, params, show_colorbar=False):
         hop_length=params.get("hop_length", 512),
         x_axis="time",
         y_axis="linear",
-        fmin=20,
+        fmin=params.get('f_min', 20),
+        fmax=params.get('f_max', 20000),
         ax=ax,
     )
 

@@ -35,7 +35,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         transforms=transforms,
         secondary_labels_weight=config.secondary_labels_weight,
         normalize=config.normalize,
-        max_len=config.melspec_config["sample_rate"] * config.duration,
+        max_len=config.melspec_config["sample_rate"] * config.train_duration,
         self_mixup=config.self_mixup,
         train=True,
     )
@@ -68,7 +68,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         drop_rate=config.drop_rate,
         drop_path_rate=config.drop_path_rate,
         pretrained_weights=pretrained_weights,
-        increase_stride=config.increase_stride,
+        reduce_stride=config.reduce_stride,
         verbose=(config.local_rank == 0),
     ).cuda()
 

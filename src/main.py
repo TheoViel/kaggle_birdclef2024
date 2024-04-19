@@ -62,18 +62,20 @@ class Config:
     save_weights = True
 
     # Data
+    train_duration = 5  # 15
     duration = 5
     aug_strength = 1
     self_mixup = True
-    normalize = True
+    normalize = True  # False ??
 
     melspec_config = {
         "sample_rate": 32000,
-        "n_mels": 128,
-        "f_min": 20,
+        "n_mels": 128,  # 128, 224
+        "f_min": 50,
+        "f_max": 15000,
         "n_fft": 2048,
-        "hop_length": 512,
-        "normalized": True,
+        "hop_length": 512,  # 716, 512, 417
+        "normalized": False,
     }
 
     aug_config = {
@@ -103,7 +105,7 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "eca_nfnet_l0"  # convnextv2_tiny maxvit_tiny_tf_384
+    name = "tf_efficientnetv2_s"  # tf_efficientnetv2_s maxvit_tiny_tf_384 eca_nfnet_l0
     pretrained_weights = None
 
     num_classes = 182
@@ -111,12 +113,12 @@ class Config:
     drop_path_rate = 0.2
     n_channels = 1
     head = "gem"
-    increase_stride = False  # for maxvit_512 ?
+    reduce_stride = "256" in name
 
     # Training
     loss_config = {
         "name": "bce",
-        "weighted": False,
+        "weighted": True,
         "smoothing": 0.,
         "top_k": 0,
         "activation": "sigmoid",  # "softmax"

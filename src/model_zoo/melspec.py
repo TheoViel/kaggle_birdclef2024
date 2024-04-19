@@ -15,7 +15,6 @@ from torchaudio.transforms import (
 from data.mix import Mixup
 
 try:
-    from nnAudio.features import CQT1992v2
     from nnAudio.features.stft import STFT as nnAudioSTFT
     from nnAudio.features.stft import STFTBase
     from nnAudio.utils import create_fourier_kernels
@@ -29,7 +28,7 @@ class FeatureExtractor(nn.Module):
         self,
         params,
         aug_config=None,
-        top_db=80,
+        top_db=None,
         exportable=False,
         quantizable=False,
         spec_extractor="melspec",
@@ -46,87 +45,95 @@ class FeatureExtractor(nn.Module):
         """
         super().__init__()
 
-        if spec_extractor == "melspec":
-            if exportable:
-                spectrogram = TraceableMelspec
-                params[quantizable] = quantizable
-            else:
-                spectrogram = MelSpectrogram
-        elif spec_extractor == "cqt":
-            spectrogram = CQT1992v2
+        if exportable:
+            spectrogram = TraceableMelspec
+            params[quantizable] = quantizable
         else:
-            raise NotImplementedError(f"{spec_extractor} not implemented")
+            spectrogram = MelSpectrogram
 
         amplitude_to_db = QuantizableAmplitudeToDB if quantizable else AmplitudeToDB
 
-        self.extractor = nn.Sequential(
-            spectrogram(**params),
-            amplitude_to_db(top_db=top_db),
-            NormalizeMelSpec(exportable=exportable),
-        )
+        self.extractor = spectrogram(**params)
+        self.amplitude_to_db = amplitude_to_db(top_db=top_db)
+        self.normalizer = MeanStdNorm()
 
         if aug_config is not None:
             self.freq_mask = CustomFreqMasking(**aug_config["specaug_freq"])
             self.time_mask = CustomTimeMasking(**aug_config["specaug_time"])
-            self.mixup_audio = Mixup(p=aug_config["mixup"].get("p_audio", 0), **aug_config["mixup"])
-            self.mixup_spec = Mixup(p=aug_config["mixup"].get("p_spec", 0), **aug_config["mixup"])
+            self.mixup_audio = Mixup(
+                p=aug_config["mixup"].get("p_audio", 0), **aug_config["mixup"]
+            )
+            self.mixup_spec = Mixup(
+                p=aug_config["mixup"].get("p_spec", 0), **aug_config["mixup"]
+            )
         else:
             self.time_mask = nn.Identity()
             self.freq_mask = nn.Identity()
-            self.mixup_audio = lambda x, y: (nn.Identity()(x), nn.Identity()(y))
-            self.mixup_spec = lambda x, y: (nn.Identity()(x), nn.Identity()(y))
+            self.mixup_audio = lambda x, y, z: (
+                nn.Identity()(x),
+                nn.Identity()(y),
+                nn.Identity()(z),
+            )
+            self.mixup_spec = lambda x, y, z: (
+                nn.Identity()(x),
+                nn.Identity()(y),
+                nn.Identity()(z),
+            )
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, w=None):
         if self.training:
-            x, y = self.mixup_audio(x, y)
+            x, y, w = self.mixup_audio(x, y, w)
 
-        melspec = self.extractor(x)
+        with torch.cuda.amp.autocast(enabled=False):
+            melspec = self.extractor(x)
+        melspec = self.amplitude_to_db(melspec)
+        melspec = self.normalizer(melspec)
 
         if self.training:
-            melspec, y = self.mixup_spec(melspec, y)
+            melspec, y, w = self.mixup_spec(melspec, y, w)
 
             self.freq_mask(melspec)
             self.time_mask(melspec)
 
-        # print(y.sum(-1))
-
-        return melspec, y
+        return melspec, y, w
 
 
-class NormalizeMelSpec(nn.Module):
-    def __init__(self, eps=1e-6, exportable=False):
+class MeanStdNorm(nn.Module):
+    def __init__(self, eps=1e-6):
         super().__init__()
         self.eps = eps
-        self.exportable = exportable
 
     def forward(self, X):
         mean = X.mean((1, 2), keepdim=True)
-        std = X.std((1, 2), keepdim=True)
-        Xstd = (X - mean) / (std + self.eps)
-        if self.exportable:
-            norm_max = torch.amax(Xstd, dim=(1, 2), keepdim=True)
-            norm_min = torch.amin(Xstd, dim=(1, 2), keepdim=True)
-            return (Xstd - norm_min) / (norm_max - norm_min + self.eps)
-        else:
-            norm_min, norm_max = (
-                Xstd.min(-1)[0].min(-1)[0],
-                Xstd.max(-1)[0].max(-1)[0],
-            )
-            fix_ind = (norm_max - norm_min) > self.eps * torch.ones_like(
-                (norm_max - norm_min)
-            )
-            V = torch.zeros_like(Xstd)
-            if fix_ind.sum():
-                V_fix = Xstd[fix_ind]
-                norm_max_fix = norm_max[fix_ind, None, None]
-                norm_min_fix = norm_min[fix_ind, None, None]
-                V_fix = torch.max(
-                    torch.min(V_fix, norm_max_fix),
-                    norm_min_fix,
-                )
-                V_fix = (V_fix - norm_min_fix) / (norm_max_fix - norm_min_fix)
-                V[fix_ind] = V_fix
-            return V
+        std = X.reshape(X.size(0), -1).std(1, keepdim=True).unsqueeze(-1)
+        return (X - mean) / (std + self.eps)
+
+        # std = X.std((1, 2), keepdim=True)
+        # Xstd = (X - mean) / (std + self.eps)
+        # if self.exportable:
+        #     norm_max = torch.amax(Xstd, dim=(1, 2), keepdim=True)
+        #     norm_min = torch.amin(Xstd, dim=(1, 2), keepdim=True)
+        #     return (Xstd - norm_min) / (norm_max - norm_min + self.eps)
+        # else:
+        #     norm_min, norm_max = (
+        #         Xstd.min(-1)[0].min(-1)[0],
+        #         Xstd.max(-1)[0].max(-1)[0],
+        #     )
+        #     fix_ind = (norm_max - norm_min) > self.eps * torch.ones_like(
+        #         (norm_max - norm_min)
+        #     )
+        #     V = torch.zeros_like(Xstd)
+        #     if fix_ind.sum():
+        #         V_fix = Xstd[fix_ind]
+        #         norm_max_fix = norm_max[fix_ind, None, None]
+        #         norm_min_fix = norm_min[fix_ind, None, None]
+        #         V_fix = torch.max(
+        #             torch.min(V_fix, norm_max_fix),
+        #             norm_min_fix,
+        #         )
+        #         V_fix = (V_fix - norm_min_fix) / (norm_max_fix - norm_min_fix)
+        #         V[fix_ind] = V_fix
+        #     return V
 
 
 class TraceableMelspec(nn.Module):
@@ -437,6 +444,7 @@ class CustomMasking(nn.Module):
 
     Simplified to always be inplace.
     """
+
     def __init__(self, mask_max_length: int, mask_max_masks: int, p=1.0):
         super().__init__()
         assert isinstance(mask_max_masks, int) and mask_max_masks > 0

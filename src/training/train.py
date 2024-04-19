@@ -47,7 +47,7 @@ def evaluate(
     with torch.no_grad():
         for x, y, w in val_loader:
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred, _ = model(x.cuda())
+                y_pred = model(x.cuda())[0]
                 loss = loss_fct(y_pred.detach(), y.cuda())
 
             val_losses.append(loss.detach())
@@ -157,14 +157,11 @@ def fit(
                 train_loader.batch_sampler.sampler.set_epoch(epoch)
 
         for x, y, w in tqdm(train_loader, disable=True):
-            x = x.cuda()
-            y = y.cuda()
-
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred, y = model(x, y)
+                y_pred, y, w = model(x.cuda(), y.cuda(), w.cuda())
 
                 # print(x.size(), y_pred.size(), y.size())
-                loss = loss_fct(y_pred, y)
+                loss = loss_fct(y_pred, y, w=w)
 
             scaler.scale(loss).backward()
             avg_losses.append(loss.detach())

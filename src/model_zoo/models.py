@@ -21,13 +21,11 @@ def define_model(
     drop_path_rate=0,
     pretrained_weights="",
     pretrained=True,
-    increase_stride=False,
+    reduce_stride=False,
     replace_pad_conv=False,
     verbose=1,
 ):
-    """
-
-    """
+    """ """
     if drop_path_rate > 0 and "coat" not in name:
         encoder = timm.create_model(
             name,
@@ -61,8 +59,8 @@ def define_model(
             model, pretrained_weights, verbose=verbose, strict=False
         )
 
-    if increase_stride:
-        model.increase_stride()
+    if reduce_stride:
+        model.reduce_stride()
 
     return model
 
@@ -72,6 +70,7 @@ class ClsModel(nn.Module):
     PyTorch model for wave classification.
 
     """
+
     def __init__(
         self,
         encoder,
@@ -123,7 +122,11 @@ class ClsModel(nn.Module):
                 conv = self.encoder.stem[0]
             elif "coat_lite" in self.encoder.name:
                 conv = self.encoder.patch_embed1.proj
-            elif "coatnet" in self.encoder.name or "nfnet" in self.encoder.name:
+            elif (
+                "coatnet" in self.encoder.name
+                or "nfnet" in self.encoder.name
+                or "maxvit" in self.encoder.name
+            ):
                 conv = self.encoder.stem.conv1
             elif "efficientnet" in self.encoder.name:
                 conv = self.encoder.conv_stem
@@ -157,32 +160,32 @@ class ClsModel(nn.Module):
                 self.encoder.stem[0] = new_conv
             elif "coat_lite" in self.encoder.name:
                 self.encoder.patch_embed1.proj = new_conv
-            elif "coatnet" in self.encoder.name or "nfnet" in self.encoder.name:
+            elif (
+                "coatnet" in self.encoder.name
+                or "nfnet" in self.encoder.name
+                or "maxvit" in self.encoder.name
+            ):
                 self.encoder.stem.conv1 = new_conv
             elif "efficientnet" in self.encoder.name:
                 self.encoder.conv_stem = new_conv
 
-    def increase_stride(self):
+    def reduce_stride(self):
         """
-        Increase the stride of the first layer of the encoder.
+        Reduce the stride of the first layer of the encoder.
         """
         if "nfnet" in self.encoder.name:
-            self.encoder.model.stem_conv1.stride = (4, 4)
+            self.encoder.stem_conv1.stride = (1, 1)
         elif "efficientnet" in self.encoder.name:
-            self.encoder.model.conv_stem.stride = (4, 4)
+            self.encoder.conv_stem.stride = (1, 1)
         elif "resnet" in self.encoder.name or "resnext" in self.encoder.name:
             try:
-                self.encoder.model.conv1[0].stride = (4, 4)
+                self.encoder.conv1[0].stride = (1, 1)
             except Exception:
-                self.encoder.model.conv1.stride = (4, 4)
-        elif "convnext" in self.encoder.name:
-            print("VERIFY")
-            self.encoder.stem[0].stride = (2, 2)
-            self.encoder.stem[0].padding = (4, 4)
+                self.encoder.conv1.stride = (1, 1)
         elif "maxvit" in self.encoder.name or "maxxvit" in self.encoder.name:
-            self.encoder.model.stem.conv1.stride = (4, 4)
+            self.encoder.stem.conv1.stride = (1, 1)
         elif "coatnet" in self.encoder.name:
-            self.encoder.model.stem.conv1.stride = (4, 4)
+            self.encoder.stem.conv1.stride = (1, 1)
         else:
             raise NotImplementedError
 
@@ -208,7 +211,7 @@ class ClsModel(nn.Module):
         fts = self.dropout(fts)
         return self.logits(fts)
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, w=None):
         """
         Forward function for the model.
 
@@ -218,7 +221,25 @@ class ClsModel(nn.Module):
         Returns:
             torch.Tensor: Logits for the primary classes of shape [batch_size x num_classes].
         """
-        melspec, y = self.ft_extractor(x, y)
+        n_chunks = x.size(1) // (32000 * 5)
+
+        melspec, y, w = self.ft_extractor(x, y, w=w)
+
+        if n_chunks > 1:  # bs x n_mels x t -> bs * n_chunks x n_mels x t / n_chunks
+            bs, n_mels, t = melspec.size()
+            t = t // n_chunks * n_chunks
+            melspec = melspec[:, :, :t]
+            melspec = melspec.reshape(bs, n_mels, n_chunks, t // n_chunks)
+            melspec = melspec.permute(0, 2, 1, 3)
+            melspec = melspec.reshape(bs * n_chunks, n_mels, t // n_chunks)
+
         fts = self.encoder(melspec.unsqueeze(1))
+
+        if n_chunks > 1:  # bs * n_chunks x n_fts x f x t / n_chunks -> bs x n_fts x f x t
+            _, nb_ft, f, t_c = fts.size()
+            fts = fts.reshape(bs, n_chunks, nb_ft, f, t_c)
+            fts = fts.permute(0, 2, 3, 1, 4)
+            fts = fts.reshape(bs, nb_ft, f, n_chunks * t_c)
+
         logits = self.get_logits(fts)
-        return logits, y
+        return logits, y, w

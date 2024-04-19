@@ -120,10 +120,6 @@ class SmoothBCEWithLogitsLoss(nn.Module):
         if self.eps > 0:
             targets = torch.clamp(targets, self.eps, 1 - self.eps)
 
-        # loss = - (
-        #     targets * inputs.sigmoid().log() +
-        #     (1 - targets) * (1 - inputs.sigmoid()).log()
-        # )
         loss = (
             targets * (1 + (- inputs).exp()).log() +
             (1 - targets) * (1 + inputs.exp()).log()
@@ -157,6 +153,7 @@ class BirdLoss(nn.Module):
 
         self.eps = config.get("smoothing", 0)
         self.top_k = config.get("top_k", 0)
+        self.weighted = config.get("weighted", False)
 
         if config["name"] == "bce":
             if self.eps:
@@ -200,7 +197,7 @@ class BirdLoss(nn.Module):
         weights = torch.clamp(weights + (y > 0).float(), 0., 1.)
         return weights
 
-    def forward(self, pred, y):
+    def forward(self, pred, y, w=None):
         """
         Computes the loss.
 
@@ -220,7 +217,10 @@ class BirdLoss(nn.Module):
             mask = self.top_k_mask(pred, y)
             loss *= mask
 
-        # if len(loss.size()) > 2:
-        #     loss = loss.sum(-1)
+        if len(loss.size()) == 2:
+            loss = loss.mean(-1)
 
-        return loss.mean()
+        if self.weighted and w is not None:
+            return (loss * w).sum() / w.sum()
+        else:
+            return loss.mean()

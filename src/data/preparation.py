@@ -61,7 +61,7 @@ def prepare_data(data_path="../input/"):
     """
     df = pd.read_csv(os.path.join(data_path, "train_metadata.csv"))
     df["id"] = df["filename"].apply(lambda x: x.split("/")[-1][:-4])
-    df = df[["id", "filename", "primary_label", "secondary_labels"]]
+    df = df[["id", "filename", "primary_label", "secondary_labels", "rating"]]
     df["path"] = data_path + "train_audio/" + df["filename"]
     df["path_ft"] = data_path + "train_features/" + df["filename"].apply(lambda x: x[:-3]) + "hdf5"
 
@@ -87,7 +87,7 @@ def prepare_xenocanto_data(data_path="../input/"):
     df = pd.read_csv(
         data_path + "xenocanto/BirdClef2024_additional.csv", low_memory=False
     )
-    df = df[["id", "gen", "sp", "group", "en", "file", "primary_label", "also"]]
+    df = df[["id", "en", "file", "primary_label", "also", "q"]]
 
     df["id"] = "XC" + df["id"].astype(str)
     df["filename"] = df["primary_label"] + "/" + df["file"] + ".mp3"
@@ -96,6 +96,8 @@ def prepare_xenocanto_data(data_path="../input/"):
         data_path + "xenocanto/features/" + df["filename"].apply(lambda x: x[:-3]) + "hdf5"
     )
     df["secondary_labels"] = df["also"]
+    rating_mapping = {"A": 5, "B": 4, "C": 3, "D": 2, "E": 1, "F": 0, 'no score': 3.75}
+    df["rating"] = df["q"].map(rating_mapping).fillna(3.75)
     df["fold"] = -1
 
     # Remove files already in comp data and not found
@@ -133,5 +135,5 @@ def prepare_xenocanto_data(data_path="../input/"):
     )
     df = update_secondary_labels(df)
 
-    df = df[["id", "filename", "primary_label", "secondary_labels", "path", "path_ft", "fold"]]
+    df = df[["id", "filename", "primary_label", "secondary_labels", "rating", "path", "path_ft", "fold"]]  # noqa
     return df

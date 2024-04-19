@@ -28,6 +28,7 @@ class WaveDataset(Dataset):
         self.labels = df["primary_label"].values
         self.secondary_labels = df["secondary_labels"].values
         self.paths = df["path_ft"].values
+        self.sample_weights = (df["rating"].values + 1) / 6
 
         # Parameters
         self.secondary_labels_weight = secondary_labels_weight
@@ -101,7 +102,8 @@ class WaveDataset(Dataset):
             wave = self.transforms(wave)
 
         wave = torch.from_numpy(wave)
-        return wave, y, 1  # wave_no_aug  # 1 is a placeholder for sample weight
+        w = self.sample_weights[idx]
+        return wave, y, w  # wave_no_aug
 
 
 class WaveInfDataset(Dataset):
