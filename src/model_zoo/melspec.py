@@ -28,7 +28,7 @@ class FeatureExtractor(nn.Module):
         self,
         params,
         aug_config=None,
-        top_db=None,
+        top_db=80,
         exportable=False,
         quantizable=False,
         spec_extractor="melspec",
@@ -55,7 +55,8 @@ class FeatureExtractor(nn.Module):
 
         self.extractor = spectrogram(**params)
         self.amplitude_to_db = amplitude_to_db(top_db=top_db)
-        self.normalizer = MeanStdNorm()
+        # self.normalizer = MeanStdNorm()
+        self.normalizer = MinMaxNorm()
 
         if aug_config is not None:
             self.freq_mask = CustomFreqMasking(**aug_config["specaug_freq"])
@@ -98,6 +99,17 @@ class FeatureExtractor(nn.Module):
         return melspec, y, w
 
 
+class MinMaxNorm(nn.Module):
+    def __init__(self, eps=1e-6):
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, X):
+        min_ = torch.amax(X, dim=(1, 2), keepdim=True)
+        max_ = torch.amin(X, dim=(1, 2), keepdim=True)
+        return (X - min_) / (max_ - min_ + self.eps)
+
+
 class MeanStdNorm(nn.Module):
     def __init__(self, eps=1e-6):
         super().__init__()
@@ -107,33 +119,6 @@ class MeanStdNorm(nn.Module):
         mean = X.mean((1, 2), keepdim=True)
         std = X.reshape(X.size(0), -1).std(1, keepdim=True).unsqueeze(-1)
         return (X - mean) / (std + self.eps)
-
-        # std = X.std((1, 2), keepdim=True)
-        # Xstd = (X - mean) / (std + self.eps)
-        # if self.exportable:
-        #     norm_max = torch.amax(Xstd, dim=(1, 2), keepdim=True)
-        #     norm_min = torch.amin(Xstd, dim=(1, 2), keepdim=True)
-        #     return (Xstd - norm_min) / (norm_max - norm_min + self.eps)
-        # else:
-        #     norm_min, norm_max = (
-        #         Xstd.min(-1)[0].min(-1)[0],
-        #         Xstd.max(-1)[0].max(-1)[0],
-        #     )
-        #     fix_ind = (norm_max - norm_min) > self.eps * torch.ones_like(
-        #         (norm_max - norm_min)
-        #     )
-        #     V = torch.zeros_like(Xstd)
-        #     if fix_ind.sum():
-        #         V_fix = Xstd[fix_ind]
-        #         norm_max_fix = norm_max[fix_ind, None, None]
-        #         norm_min_fix = norm_min[fix_ind, None, None]
-        #         V_fix = torch.max(
-        #             torch.min(V_fix, norm_max_fix),
-        #             norm_min_fix,
-        #         )
-        #         V_fix = (V_fix - norm_min_fix) / (norm_max_fix - norm_min_fix)
-        #         V[fix_ind] = V_fix
-        #     return V
 
 
 class TraceableMelspec(nn.Module):

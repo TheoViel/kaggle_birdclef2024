@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_data, prepare_xenocanto_data
+from data.preparation import prepare_data, prepare_xenocanto_data, prepare_nocall_data
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -62,8 +62,11 @@ class Config:
     save_weights = True
 
     # Data
+    use_nocall = True
+
     train_duration = 5  # 15
     duration = 5
+
     aug_strength = 1
     self_mixup = True
     normalize = True  # False ??
@@ -75,7 +78,7 @@ class Config:
         "f_max": 15000,
         "n_fft": 2048,
         "hop_length": 512,  # 716, 512, 417
-        "normalized": False,
+        "normalized": True,
     }
 
     aug_config = {
@@ -91,8 +94,8 @@ class Config:
         },
         "mixup":
         {
-            "p_audio": 0.75,
-            "p_spec": 0.25,
+            "p_audio": 0.5,
+            "p_spec": 0.2,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
@@ -118,7 +121,7 @@ class Config:
     # Training
     loss_config = {
         "name": "bce",
-        "weighted": True,
+        "weighted": False,
         "smoothing": 0.,
         "top_k": 0,
         "activation": "sigmoid",  # "softmax"
@@ -183,6 +186,10 @@ if __name__ == "__main__":
     df = prepare_data(DATA_PATH)
     df_xc = prepare_xenocanto_data(DATA_PATH)
     df = pd.concat([df, df_xc], ignore_index=True)
+
+    if config.use_nocall:
+        df_nocall = prepare_nocall_data(DATA_PATH)
+        df = pd.concat([df, df_nocall], ignore_index=True)
 
     run = None
     if config.local_rank == 0:

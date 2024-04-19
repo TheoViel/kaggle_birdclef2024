@@ -1,9 +1,13 @@
 import os
 import re
+import glob
 import pandas as pd
 
 from itertools import chain
 from sklearn.model_selection import StratifiedGroupKFold
+
+
+COLS = ["id", "filename", "primary_label", "secondary_labels", "rating", "path", "path_ft", "fold"]
 
 
 def prepare_folds(data_path="../input/", k=4):
@@ -135,5 +139,26 @@ def prepare_xenocanto_data(data_path="../input/"):
     )
     df = update_secondary_labels(df)
 
-    df = df[["id", "filename", "primary_label", "secondary_labels", "rating", "path", "path_ft", "fold"]]  # noqa
-    return df
+    return df[COLS]
+
+
+def prepare_nocall_data(data_path="../input/"):
+    """
+    Prepares the data.
+
+    Args:
+        data_path (str, optional): Path to the data directory. Defaults to "../input/".
+
+    Returns:
+        pandas DataFrame: Metadata
+    """
+    df = pd.DataFrame({"path_ft": glob.glob(data_path + "nocall_features/*/*.hdf5")})
+    df["path"] = df["path_ft"]
+    df["id"] = df["path_ft"].apply(lambda x: x.split("/")[-1][:-5])
+    df["filename"] = df["id"]
+    df["primary_label"] = "nocall"
+    df["secondary_labels"] = [[] for _ in range(len(df))]
+    df["rating"] = 2.5
+    df["fold"] = -1
+
+    return df[COLS]

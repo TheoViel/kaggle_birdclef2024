@@ -47,6 +47,11 @@ class WaveDataset(Dataset):
             if len(wave) <= self.max_len:  # Pad
                 pad_len = self.max_len - len(wave)
                 wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
+
+                # # if len(wave) <= self.max_len:  # Tile padding
+                # n_tiles = int(np.ceil(self.max_len / len(wave)))
+                # wave = np.wave(wave, n_tiles)[:self.max_len]
+
             else:  # Random crop
                 if self.self_mixup and len(wave) > self.max_len * 2:
                     start_1 = np.random.randint(0, len(wave) // 2 - self.max_len)

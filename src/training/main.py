@@ -192,7 +192,7 @@ def k_fold(config, df, log_folder=None, run=None):
             train(
                 config,
                 df,
-                df.tail(100).reset_index(drop=True),
+                df.head(200).reset_index(drop=True),
                 f"fullfit_{ff}",
                 log_folder=log_folder,
                 run=run,
