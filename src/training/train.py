@@ -145,7 +145,7 @@ def fit(
         optimizer, num_warmup_steps, num_training_steps
     )
 
-    loss_fct = BirdLoss(loss_config)  # TODO
+    loss_fct = BirdLoss(loss_config)
 
     auc, auc_s = 0, 0
     step, step_ = 1, 1
@@ -161,8 +161,6 @@ def fit(
         for x, y, y_aux, w in tqdm(train_loader, disable=True):
             with torch.cuda.amp.autocast(enabled=use_fp16):
                 y_pred, y, y_aux, w = model(x.cuda(), y.cuda(), y_aux.cuda(), w.cuda())
-
-                # print(x.size(), y_pred.size(), y.size())
                 loss = loss_fct(y_pred, y, secondary_mask=y_aux, w=w)
 
             scaler.scale(loss).backward()

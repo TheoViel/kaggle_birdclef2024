@@ -77,9 +77,9 @@ class FeatureExtractor(nn.Module):
             x, y, y_aux, w = self.mixup_audio(x, y, y_aux, w)
 
         with torch.cuda.amp.autocast(enabled=False):
-            melspec = self.extractor(x)
-        melspec = self.amplitude_to_db(melspec)
-        melspec = self.normalizer(melspec)
+            melspec = self.extractor(x.float())
+            melspec = self.amplitude_to_db(melspec)
+            melspec = self.normalizer(melspec)
 
         if self.training:
             melspec, y, y_aux, w = self.mixup_spec(melspec, y, y_aux, w)

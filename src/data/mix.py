@@ -76,6 +76,7 @@ class Mixup(nn.Module):
 
         if y_aux is not None:
             y_aux = torch.cat([y_aux.unsqueeze(0), y_aux[perm].unsqueeze(0)], 0).amax(0)
+            y_aux = torch.clamp(y_aux - y, 0, 1)  # Ensure primary label not in secondary
 
         if w is not None:
             w = coeffs * w + (1 - coeffs) * w[perm]

@@ -142,19 +142,19 @@ class Config:
     }
 
     optimizer_config = {
-        "name": "Ranger",
-        "lr": 5e-3,
+        "name": "AdamW",
+        "lr": 1e-3,
         "warmup_prop": 0.0,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.1,
-        "weight_decay": 0.,
+        "weight_decay": 0.1,
     }
 
-    epochs = 30 if use_xc else 40
+    epochs = 20
 
     use_fp16 = True
     verbose = 1
-    verbose_eval = 200
+    verbose_eval = 100
 
     fullfit = True
     n_fullfit = 1
