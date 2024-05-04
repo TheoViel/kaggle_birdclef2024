@@ -45,10 +45,12 @@ def evaluate(
     preds = []
 
     with torch.no_grad():
-        for x, y, w in val_loader:
+        for x, y, y_aux, w in val_loader:
             with torch.cuda.amp.autocast(enabled=use_fp16):
                 y_pred = model(x.cuda())[0]
-                loss = loss_fct(y_pred.detach(), y.cuda())
+                loss = loss_fct(
+                    y_pred.detach(), y.cuda(), secondary_mask=y_aux.cuda(), w=w.cuda()
+                )
 
             val_losses.append(loss.detach())
 
@@ -156,12 +158,12 @@ def fit(
             except AttributeError:
                 train_loader.batch_sampler.sampler.set_epoch(epoch)
 
-        for x, y, w in tqdm(train_loader, disable=True):
+        for x, y, y_aux, w in tqdm(train_loader, disable=True):
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred, y, w = model(x.cuda(), y.cuda(), w.cuda())
+                y_pred, y, y_aux, w = model(x.cuda(), y.cuda(), y_aux.cuda(), w.cuda())
 
                 # print(x.size(), y_pred.size(), y.size())
-                loss = loss_fct(y_pred, y, w=w)
+                loss = loss_fct(y_pred, y, secondary_mask=y_aux, w=w)
 
             scaler.scale(loss).backward()
             avg_losses.append(loss.detach())
@@ -211,7 +213,7 @@ def fit(
                     lr = scheduler.get_last_lr()[0]
                     step_ = step * world_size
 
-                    preds = preds[:len(val_dataset)]
+                    preds = preds[: len(val_dataset)]
                     truth, truth_s = val_dataset.get_targets()
                     auc = macro_auc(truth, preds)
                     auc_s = macro_auc(truth_s, preds)

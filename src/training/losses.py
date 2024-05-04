@@ -52,7 +52,8 @@ class FocalLossBCE(torch.nn.Module):
             reduction=self.reduction,
         )
         bce_loss = self.bce(inputs, targets)
-        return self.bce_weight * bce_loss + self.focal_weight * focall_loss
+        loss = self.bce_weight * bce_loss + self.focal_weight * focall_loss
+        return loss / (self.bce_weight + self.focal_weight)
 
 
 class SmoothCrossEntropyLoss(nn.Module):
@@ -154,6 +155,8 @@ class BirdLoss(nn.Module):
         self.eps = config.get("smoothing", 0)
         self.top_k = config.get("top_k", 0)
         self.weighted = config.get("weighted", False)
+        self.ousm_k = config.get("ousm_k", 0)
+        self.mask_secondary = config.get("mask_secondary", False)
 
         if config["name"] == "bce":
             if self.eps:
@@ -164,7 +167,11 @@ class BirdLoss(nn.Module):
         elif config["name"] == "ce":
             self.loss = SmoothCrossEntropyLoss(eps=self.eps)
         elif config["name"] == "focal":
-            self.loss = FocalLoss(eps=self.eps)
+            assert not self.eps, "smoothing not implemented"
+            self.loss = FocalLoss(reduction="none")
+        elif config["name"] == "focal_bce":
+            assert not self.eps, "smoothing not implemented"
+            self.loss = FocalLossBCE(reduction="none")
         else:
             raise NotImplementedError
 
@@ -197,7 +204,7 @@ class BirdLoss(nn.Module):
         weights = torch.clamp(weights + (y > 0).float(), 0., 1.)
         return weights
 
-    def forward(self, pred, y, w=None):
+    def forward(self, pred, y, secondary_mask=None, w=None):
         """
         Computes the loss.
 
@@ -214,13 +221,26 @@ class BirdLoss(nn.Module):
         # print(loss.size())
 
         if self.top_k:
-            mask = self.top_k_mask(pred, y)
-            loss *= mask
+            top_k_mask = self.top_k_mask(pred, y)
+            loss *= top_k_mask
+
+        if self.mask_secondary:
+            loss *= (1 - secondary_mask)
 
         if len(loss.size()) == 2:
             loss = loss.mean(-1)
 
+        if self.ousm_k:
+            _, idxs = loss.topk(y.size(0) - self.ousm_k, largest=False)
+
+            loss = loss.index_select(0, idxs)
+
+            if w is not None:
+                w = w.index_select(0, idxs)
+
         if self.weighted and w is not None:
-            return (loss * w).sum() / w.sum()
+            loss = (loss * w).sum() / w.sum()
         else:
-            return loss.mean()
+            loss = loss.mean()
+
+        return loss

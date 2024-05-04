@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_data, prepare_xenocanto_data, prepare_nocall_data
+from data.preparation import prepare_data, prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -62,24 +62,28 @@ class Config:
     save_weights = True
 
     # Data
-    use_nocall = True
+    use_xc = False
+    use_nocall = False
+    upsample_low_freq = False
 
-    train_duration = 5  # 15
+    train_duration = 5  # 15, 5
     duration = 5
+    random_crop = True  # True
 
     aug_strength = 1
-    self_mixup = True
+    self_mixup = False
     normalize = True  # False ??
 
     melspec_config = {
         "sample_rate": 32000,
         "n_mels": 128,  # 128, 224
-        "f_min": 50,
-        "f_max": 15000,
-        "n_fft": 2048,
-        "hop_length": 512,  # 716, 512, 417
+        "f_min": 90,  # 50
+        "f_max": 14000,  # 15000
+        "n_fft": 2048,  # 1536
+        "hop_length": 512,  # 717
         "normalized": True,
     }
+    exportable = False
 
     aug_config = {
         "specaug_freq": {
@@ -108,7 +112,7 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "tf_efficientnetv2_s"  # tf_efficientnetv2_s maxvit_tiny_tf_384 eca_nfnet_l0
+    name = "tf_efficientnetv2_s"  # tf_efficientnetv2_s tf_efficientnetv2_b0 eca_nfnet_l0
     pretrained_weights = None
 
     num_classes = 182
@@ -121,12 +125,14 @@ class Config:
     # Training
     loss_config = {
         "name": "bce",
-        "weighted": False,
+        "weighted": False,  # Weight using rating
+        "mask_secondary": True,
         "smoothing": 0.,
         "top_k": 0,
+        "ousm_k": 0,
         "activation": "sigmoid",  # "softmax"
     }
-    secondary_labels_weight = 1. if loss_config["name"] == "bce" else 0.5  # 0.5 for ce / 1. for bce
+    secondary_labels_weight = 0.5 if loss_config["name"] == "ce" else 1.
 
     data_config = {
         "batch_size": 64,
@@ -144,7 +150,7 @@ class Config:
         "weight_decay": 0.,
     }
 
-    epochs = 20
+    epochs = 30 if use_xc else 40
 
     use_fp16 = True
     verbose = 1
@@ -183,9 +189,10 @@ if __name__ == "__main__":
     if args.lr:
         config.optimizer_config["lr"] = args.lr
 
-    df = prepare_data(DATA_PATH)
-    df_xc = prepare_xenocanto_data(DATA_PATH)
-    df = pd.concat([df, df_xc], ignore_index=True)
+    df = prepare_data_2(DATA_PATH)
+    if config.use_xc:
+        df_xc = prepare_xenocanto_data(DATA_PATH)
+        df = pd.concat([df, df_xc], ignore_index=True)
 
     if config.use_nocall:
         df_nocall = prepare_nocall_data(DATA_PATH)

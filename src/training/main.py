@@ -7,6 +7,7 @@ from torch.nn.parallel import DistributedDataParallel
 from training.train import fit
 from model_zoo.models import define_model
 
+from data.preparation import add_xeno_low_freq
 from data.dataset import WaveDataset
 from data.transforms import get_transfos
 
@@ -37,12 +38,12 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.train_duration,
         self_mixup=config.self_mixup,
+        random_crop=config.random_crop,
         train=True,
     )
 
     val_dataset = WaveDataset(
         df_val,
-        # transforms=get_transfos(strength=1),
         normalize=config.normalize,
         max_len=config.melspec_config["sample_rate"] * config.duration,
         train=False,
@@ -69,6 +70,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         drop_path_rate=config.drop_path_rate,
         pretrained_weights=pretrained_weights,
         reduce_stride=config.reduce_stride,
+        exportable=config.exportable,
         verbose=(config.local_rank == 0),
     ).cuda()
 
@@ -146,6 +148,10 @@ def k_fold(config, df, log_folder=None, run=None):
 
             df_train = df[df["fold"] != fold].reset_index(drop=True)
             df_val = df[df["fold"] == fold].reset_index(drop=True)
+
+            if config.upsample_low_freq:
+                extra = add_xeno_low_freq(df[df["fold"] != fold])
+                df_train = pd.concat([df_train, extra], ignore_index=True)
 
             if len(df) <= 1000:
                 df_train, df_val = df, df

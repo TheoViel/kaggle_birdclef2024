@@ -16,7 +16,8 @@ def gem(x, p=3, eps=1e-6):
     Returns:
         torch.Tensor: GeM-pooled representation of the input tensor.
     """
-    return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1.0 / p)
+    x_shape = [int(s) for s in x.shape[2:]]
+    return F.avg_pool2d(x.clamp(min=eps).pow(p), x_shape).pow(1.0 / p)
 
 
 class GeM(nn.Module):

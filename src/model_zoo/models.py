@@ -23,10 +23,11 @@ def define_model(
     pretrained=True,
     reduce_stride=False,
     replace_pad_conv=False,
+    exportable=False,
     verbose=1,
 ):
     """ """
-    if drop_path_rate > 0 and "coat" not in name:
+    if drop_path_rate > 0 and "coat" not in name and "vit" not in name:
         encoder = timm.create_model(
             name,
             pretrained=pretrained,
@@ -43,7 +44,7 @@ def define_model(
         )
     encoder.name = name
 
-    ft_extractor = FeatureExtractor(melspec_params, aug_config=aug_config)
+    ft_extractor = FeatureExtractor(melspec_params, aug_config=aug_config, exportable=exportable)
 
     model = ClsModel(
         encoder,
@@ -130,6 +131,8 @@ class ClsModel(nn.Module):
                 conv = self.encoder.stem.conv1
             elif "efficientnet" in self.encoder.name:
                 conv = self.encoder.conv_stem
+            elif "efficientvit" in self.encoder.name:
+                conv = self.encoder.stem.in_conv.conv
             else:
                 raise NotImplementedError
 
@@ -168,6 +171,8 @@ class ClsModel(nn.Module):
                 self.encoder.stem.conv1 = new_conv
             elif "efficientnet" in self.encoder.name:
                 self.encoder.conv_stem = new_conv
+            elif "efficientvit" in self.encoder.name:
+                self.encoder.stem.in_conv.conv = new_conv
 
     def reduce_stride(self):
         """
@@ -211,7 +216,7 @@ class ClsModel(nn.Module):
         fts = self.dropout(fts)
         return self.logits(fts)
 
-    def forward(self, x, y=None, w=None):
+    def forward(self, x, y=None, y_aux=None, w=None):
         """
         Forward function for the model.
 
@@ -223,7 +228,7 @@ class ClsModel(nn.Module):
         """
         n_chunks = x.size(1) // (32000 * 5)
 
-        melspec, y, w = self.ft_extractor(x, y, w=w)
+        melspec, y, y_aux, w = self.ft_extractor(x, y, y_aux=y_aux, w=w)
 
         if n_chunks > 1:  # bs x n_mels x t -> bs * n_chunks x n_mels x t / n_chunks
             bs, n_mels, t = melspec.size()
@@ -233,7 +238,11 @@ class ClsModel(nn.Module):
             melspec = melspec.permute(0, 2, 1, 3)
             melspec = melspec.reshape(bs * n_chunks, n_mels, t // n_chunks)
 
-        fts = self.encoder(melspec.unsqueeze(1))
+        melspec = melspec.unsqueeze(1)
+        # if self.n_channels == 3:
+        #     melspec = melspec.expand(-1, 3, -1, -1)
+
+        fts = self.encoder(melspec)
 
         if n_chunks > 1:  # bs * n_chunks x n_fts x f x t / n_chunks -> bs x n_fts x f x t
             _, nb_ft, f, t_c = fts.size()
@@ -242,4 +251,4 @@ class ClsModel(nn.Module):
             fts = fts.reshape(bs, nb_ft, f, n_chunks * t_c)
 
         logits = self.get_logits(fts)
-        return logits, y, w
+        return logits, y, y_aux, w

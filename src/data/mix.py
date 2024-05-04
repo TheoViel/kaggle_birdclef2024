@@ -18,7 +18,7 @@ class Mixup(nn.Module):
         self.num_classes = num_classes
         self.p = p
 
-    def forward(self, x, y=None, w=None):
+    def forward(self, x, y=None, y_aux=None, w=None):
         """
         Forward pass of the Mixup module.
 
@@ -34,7 +34,7 @@ class Mixup(nn.Module):
         """
         if self.p <= 0:
             # if not torch.rand(1).item() < self.p:
-            return x, y, w
+            return x, y, y_aux, w
 
         bs = x.shape[0]
         n_dims = len(x.shape)
@@ -74,8 +74,11 @@ class Mixup(nn.Module):
                 else:
                     y = coeffs.view(-1, 1) * y + (1 - coeffs.view(-1, 1)) * y[perm]
 
+        if y_aux is not None:
+            y_aux = torch.cat([y_aux.unsqueeze(0), y_aux[perm].unsqueeze(0)], 0).amax(0)
+
         if w is not None:
             w = coeffs * w + (1 - coeffs) * w[perm]
             assert w.sum() > 0, f'Weights: {w}'
 
-        return x, y, w
+        return x, y, y_aux, w

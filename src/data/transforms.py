@@ -60,15 +60,13 @@ def gain_transfos(p=1.0):
     )
 
 
-def background_transfos(strength=1, folders=None, p=1.0):
+def background_transfos(folders=None, p=1.0):
     if folders is None:
-        paths = [
-            DATA_PATH + "nocall_2023/",
-            DATA_PATH + "esc50/",
-        ]
         # paths = [p for p in paths if os.path.exists(p)]
         # if strength > 2 or not len(paths):
-        paths += [
+        paths = [
+            # DATA_PATH + "esc50/",
+            DATA_PATH + "nocall_2023/audio/",
             DATA_PATH + "background_noise/birdclef2021_nocall/",
             DATA_PATH + "background_noise/birdclef2020_nocall/",
             DATA_PATH + "background_noise/freefield/",
@@ -113,21 +111,21 @@ def get_transfos(augment=True, normalize=True, strength=1):
         transfos = Compose(
             [
                 # background_transfos(strength=1, folders=["unlabeled_soundscapes/"], p=1),
-                background_transfos(strength=1, p=0.5),
+                background_transfos(p=0.5),
             ]
         )
     elif strength == 2:
         transfos = Compose(
             [
-                background_transfos(strength=2, p=0.5),
-                gain_transfos(p=0.5),
-                noise_transfos(p=0.25),
+                background_transfos(p=0.5),
+                gain_transfos(p=0.3),
+                noise_transfos(p=0.2),
             ]
         )
     elif strength == 3:
         transfos = Compose(
             [
-                background_transfos(strength=2, p=0.75),
+                background_transfos(p=0.75),
                 gain_transfos(p=0.75),
                 noise_transfos(p=0.5),
             ]
