@@ -24,6 +24,8 @@ def define_model(
     reduce_stride=False,
     replace_pad_conv=False,
     exportable=False,
+    norm="min_max",
+    top_db=None,
     verbose=1,
 ):
     """ """
@@ -44,7 +46,13 @@ def define_model(
         )
     encoder.name = name
 
-    ft_extractor = FeatureExtractor(melspec_params, aug_config=aug_config, exportable=exportable)
+    ft_extractor = FeatureExtractor(
+        melspec_params,
+        aug_config=aug_config,
+        norm=norm,
+        top_db=top_db,
+        exportable=exportable,
+    )
 
     model = ClsModel(
         encoder,
@@ -244,7 +252,9 @@ class ClsModel(nn.Module):
 
         fts = self.encoder(melspec)
 
-        if n_chunks > 1:  # bs * n_chunks x n_fts x f x t / n_chunks -> bs x n_fts x f x t
+        if (
+            n_chunks > 1
+        ):  # bs * n_chunks x n_fts x f x t / n_chunks -> bs x n_fts x f x t
             _, nb_ft, f, t_c = fts.size()
             fts = fts.reshape(bs, n_chunks, nb_ft, f, t_c)
             fts = fts.permute(0, 2, 3, 1, 4)

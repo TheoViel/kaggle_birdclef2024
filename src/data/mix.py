@@ -40,10 +40,14 @@ class Mixup(nn.Module):
         n_dims = len(x.shape)
 
         perm = torch.randperm(bs)
-        perm = torch.where(torch.rand(bs) < self.p, perm, torch.arange(bs))
+        # perm = torch.where(torch.rand(bs) < self.p, perm, torch.arange(bs))
 
         # print(perm)
-        coeffs = self.beta_distribution.rsample(torch.Size((bs,))).to(x.device)
+        # coeffs = self.beta_distribution.rsample(torch.Size((bs,))).to(x.device)
+        coeffs = torch.where(torch.rand(bs) < self.p, 0.2 + 0.8 * torch.rand(bs), 0)
+        coeffs = coeffs.to(x.device)
+
+        # print(coeffs)
         # coeffs = torch.where(torch.rand(bs).to(coeffs.device) < self.p, coeffs, 1)
 
         if n_dims == 2:

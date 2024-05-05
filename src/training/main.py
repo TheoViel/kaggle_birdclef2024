@@ -70,6 +70,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         drop_path_rate=config.drop_path_rate,
         pretrained_weights=pretrained_weights,
         reduce_stride=config.reduce_stride,
+        norm=config.norm,
         exportable=config.exportable,
         verbose=(config.local_rank == 0),
     ).cuda()

@@ -211,6 +211,7 @@ class WaveInfDataset(Dataset):
 
         if self.normalize:
             wave = librosa.util.normalize(wave)
+            # wave = (wave - wave.mean()) / (wave.std() + 1e-6)
 
         wave = torch.from_numpy(wave)
         return wave, 1, 1

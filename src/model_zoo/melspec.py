@@ -25,9 +25,9 @@ class FeatureExtractor(nn.Module):
         self,
         params,
         aug_config=None,
-        top_db=80,
+        top_db=None,
+        norm="min_max",
         exportable=False,
-        spec_extractor="melspec",
     ):
         """
         params={
@@ -44,8 +44,15 @@ class FeatureExtractor(nn.Module):
         spectrogram = TraceableMelspec if exportable else MelSpectrogram
         self.extractor = spectrogram(**params)
         self.amplitude_to_db = AmplitudeToDB(top_db=top_db)
-        # self.normalizer = MeanStdNorm()
-        self.normalizer = MinMaxNorm()
+
+        if norm == "mean_std":
+            self.normalizer = MeanStdNorm()
+        elif norm == "min_max":
+            self.normalizer = MinMaxNorm()
+        elif norm == "simple":
+            self.normalizer = SimpleNorm()
+        else:
+            self.normalizer = nn.Identity()
 
         if aug_config is not None:
             self.freq_mask = CustomFreqMasking(**aug_config["specaug_freq"])
@@ -99,6 +106,14 @@ class MinMaxNorm(nn.Module):
         min_ = torch.amax(X, dim=(1, 2), keepdim=True)
         max_ = torch.amin(X, dim=(1, 2), keepdim=True)
         return (X - min_) / (max_ - min_ + self.eps)
+
+
+class SimpleNorm(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, X):
+        return (X - 40) / 80
 
 
 class MeanStdNorm(nn.Module):

@@ -84,6 +84,8 @@ class Config:
         "normalized": True,
     }
     exportable = False
+    norm = "min_max"
+    top_db = None
 
     aug_config = {
         "specaug_freq": {
@@ -99,7 +101,7 @@ class Config:
         "mixup":
         {
             "p_audio": 0.5,
-            "p_spec": 0.2,
+            "p_spec": 0.,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
@@ -146,7 +148,7 @@ class Config:
         "lr": 1e-3,
         "warmup_prop": 0.0,
         "betas": (0.9, 0.999),
-        "max_grad_norm": 0.1,
+        "max_grad_norm": 0.,
         "weight_decay": 0.1,
     }
 
