@@ -247,8 +247,10 @@ class ClsModel(nn.Module):
             melspec = melspec.reshape(bs * n_chunks, n_mels, t // n_chunks)
 
         melspec = melspec.unsqueeze(1)
-        # if self.n_channels == 3:
-        #     melspec = melspec.expand(-1, 3, -1, -1)
+        if self.n_channels == 3:
+            pos = torch.linspace(0., 1., melspec.size(2)).to(melspec.device).view(1, 1, -1, 1)
+            pos = pos.expand(melspec.size(0), 1, melspec.size(2), melspec.size(3))
+            melspec = torch.cat([melspec, melspec, pos], 1)
 
         fts = self.encoder(melspec)
 

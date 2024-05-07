@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_data, prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
+from data.preparation import prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -64,6 +64,7 @@ class Config:
     # Data
     use_xc = False
     use_nocall = False
+    upsample_low_freq_xc = False
     upsample_low_freq = False
 
     train_duration = 5  # 15, 5
@@ -101,7 +102,7 @@ class Config:
         "mixup":
         {
             "p_audio": 0.5,
-            "p_spec": 0.,
+            "p_spec": 0.2,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
@@ -128,13 +129,14 @@ class Config:
     loss_config = {
         "name": "bce",
         "weighted": False,  # Weight using rating
+        "use_class_weights": False,
         "mask_secondary": True,
         "smoothing": 0.,
         "top_k": 0,
         "ousm_k": 0,
         "activation": "sigmoid",  # "softmax"
     }
-    secondary_labels_weight = 0.5 if loss_config["name"] == "ce" else 1.
+    secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
         "batch_size": 64,
@@ -146,7 +148,7 @@ class Config:
     optimizer_config = {
         "name": "AdamW",
         "lr": 1e-3,
-        "warmup_prop": 0.0,
+        "warmup_prop": 0.,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.,
         "weight_decay": 0.1,
@@ -156,7 +158,7 @@ class Config:
 
     use_fp16 = True
     verbose = 1
-    verbose_eval = 100
+    verbose_eval = 100 if epochs <= 20 else 200
 
     fullfit = True
     n_fullfit = 1

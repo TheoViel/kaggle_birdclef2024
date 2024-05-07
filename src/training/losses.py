@@ -3,6 +3,20 @@ import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 
+CLASS_WEIGHTS = [
+    2., 2., 2., 3., 1., 6., 3., 3., 4., 1., 1., 3., 3., 1., 1., 2., 6.,
+    1., 2., 2., 1., 6., 3., 4., 2., 4., 2., 2., 2., 4., 2., 2., 3., 1.,
+    3., 2., 3., 1., 1., 1., 1., 1., 2., 1., 1., 1., 2., 3., 3., 4., 2.,
+    4., 6., 1., 2., 1., 3., 1., 3., 2., 2., 3., 1., 2., 2., 1., 2., 3.,
+    2., 3., 1., 1., 2., 1., 2., 4., 1., 2., 1., 4., 1., 2., 1., 2., 2.,
+    3., 3., 4., 3., 4., 2., 3., 6., 4., 4., 2., 4., 3., 1., 4., 1., 2.,
+    2., 3., 3., 1., 1., 1., 2., 2., 4., 3., 4., 4., 5., 2., 3., 3., 5.,
+    6., 2., 3., 2., 3., 6., 2., 2., 3., 4., 2., 3., 5., 1., 2., 2., 3.,
+    1., 4., 1., 2., 1., 2., 1., 1., 2., 4., 2., 3., 5., 3., 4., 2., 4.,
+    3., 3., 2., 3., 3., 2., 4., 2., 2., 4., 3., 3., 6., 1., 2., 4., 4.,
+    3., 2., 2., 2., 1., 2., 1., 1., 6., 3., 3., 1.
+]
+
 
 class FocalLoss(torch.nn.Module):
     def __init__(
@@ -155,8 +169,11 @@ class BirdLoss(nn.Module):
         self.eps = config.get("smoothing", 0)
         self.top_k = config.get("top_k", 0)
         self.weighted = config.get("weighted", False)
+        self.use_class_weights = config.get("use_class_weights", False)
         self.ousm_k = config.get("ousm_k", 0)
         self.mask_secondary = config.get("mask_secondary", False)
+
+        self.class_weights = torch.tensor(CLASS_WEIGHTS).to(device)
 
         if config["name"] == "bce":
             if self.eps:
@@ -225,7 +242,14 @@ class BirdLoss(nn.Module):
             loss *= top_k_mask
 
         if self.mask_secondary:
+            assert len(loss.size()) == 2, "Do not average per class before masking"
             loss *= (1 - secondary_mask)
+
+        if self.use_class_weights:
+            assert len(loss.size()) == 2, "Do not average per class before weighting"
+            ws = self.class_weights.unsqueeze(0).expand(loss.size(0), -1)
+            ws = torch.where(y > 0, ws, 1)
+            loss = loss * ws
 
         if len(loss.size()) == 2:
             loss = loss.mean(-1)

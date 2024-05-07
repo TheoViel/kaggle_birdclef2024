@@ -158,6 +158,7 @@ class WaveDataset(Dataset):
 
         if self.normalize:
             wave = librosa.util.normalize(wave)
+            # wave = (wave - wave.mean()) / (wave.std() + 1e-6)
 
         y, y_aux = self._get_target(idx)
 
@@ -166,52 +167,4 @@ class WaveDataset(Dataset):
 
         wave = torch.from_numpy(wave)
         w = self.sample_weights[idx]
-        return wave, y, y_aux, w  # wave_no_aug
-
-
-class WaveInfDataset(Dataset):
-    def __init__(
-        self,
-        df,
-        normalize=True,
-        max_len=32000,
-    ):
-        super().__init__()
-        self.df = df.reset_index(drop=True)
-        self.paths = df["path"].values
-        self.slices = df["slice"].values
-        self.normalize = normalize
-        self.max_len = max_len
-
-        self.waves = {}
-
-    def __len__(self):
-        return len(self.df)
-
-    def _get_wave(self, idx):
-        try:
-            return self.waves[self.paths[idx]]
-        except KeyError:
-            wave, sr = librosa.load(self.paths[idx], sr=32000)
-
-            if len(self.waves) > 100:
-                self.waves = {}  # clear memory
-
-            self.waves[self.paths[idx]] = wave
-        return wave
-
-    def __getitem__(self, idx):
-        wave = self._get_wave(idx)
-
-        wave = wave[self.slices[idx][0]: self.slices[idx][1]]
-
-        if len(wave) <= self.max_len:  # Pad
-            pad_len = self.max_len - len(wave)
-            wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
-
-        if self.normalize:
-            wave = librosa.util.normalize(wave)
-            # wave = (wave - wave.mean()) / (wave.std() + 1e-6)
-
-        wave = torch.from_numpy(wave)
-        return wave, 1, 1
+        return wave, y, y_aux, w

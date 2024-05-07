@@ -307,3 +307,23 @@ def add_xeno_low_freq(df, df_xc=None, low_freq=20, upsample_to=10, verbose=0):
                 print(f'Duplicate {len(samples) + len(xc_samples)} {c} samples')
 
     return pd.concat(extra_samples)
+
+
+def upsample_low_freq(df, low_freq=20, verbose=0):
+    df_ = df[~df["primary_label"].apply(lambda x: isinstance(x, list))]
+    cts = df_.groupby('primary_label').count()["id"]
+    cts = cts[cts < low_freq]
+
+    extra_samples = []
+    for c, v in pd.DataFrame(cts).iterrows():
+        if v.id > low_freq:
+            continue
+
+        samples = df[df["primary_label"] == c]
+        n = 20 // len(samples)
+        for _ in range(n):
+            extra_samples.append(samples)
+        if verbose:
+            print(f'Duplicate {len(samples)} {c} samples {n} times')
+
+    return pd.concat(extra_samples)
