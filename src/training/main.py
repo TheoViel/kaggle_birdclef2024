@@ -8,7 +8,7 @@ from training.train import fit
 from model_zoo.models import define_model
 
 from data.preparation import add_xeno_low_freq, upsample_low_freq
-from data.dataset import WaveDataset
+from data.dataset import WaveDataset, PLDataset
 from data.transforms import get_transfos
 
 from util.torch import seed_everything, count_parameters, save_model_weights
@@ -48,6 +48,18 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         max_len=config.melspec_config["sample_rate"] * config.duration,
         train=False,
     )
+
+    pl_dataset = None
+    if config.use_pl:
+        pls = []
+        for f in config.pl_config["folders"]:
+            if f.endswith('.csv'):
+                pls.append(pd.read_csv(f))
+            elif "fullfit" not in str(fold):
+                pls.append(pd.read_csv(f + f"pl_sub_{fold}.csv"))
+            else:
+                pls += [pd.read_csv(f + f"pl_sub_fullfit_{i}.csv")for i in range(5)]
+        pl_dataset = PLDataset(pls, normalize=config.normalize)
 
     if config.pretrained_weights is not None:
         if config.pretrained_weights.endswith(
@@ -100,6 +112,8 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         config.data_config,
         config.loss_config,
         config.optimizer_config,
+        pl_dataset=pl_dataset,
+        pl_config=config.pl_config,
         epochs=config.epochs,
         verbose_eval=config.verbose_eval,
         use_fp16=config.use_fp16,

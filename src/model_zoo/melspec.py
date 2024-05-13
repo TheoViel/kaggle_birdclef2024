@@ -112,8 +112,8 @@ class SimpleNorm(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, X):
-        return (X - 40) / 80
+    def forward(self, x):
+        return (x - 40) / 80
 
 
 class MeanStdNorm(nn.Module):

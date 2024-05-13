@@ -69,7 +69,12 @@ def load_sample(path, evaluate=False, sr=32000, duration=5, normalize=True):
         else:
             wave = np.pad(wave, (0, sr * duration - len(wave)))[None]
     else:
-        wave = wave.reshape(-1, sr * duration)
+        wave = wave[: int(len(wave) // (sr * duration) * (sr * duration))]
+        try:
+            wave = wave.reshape(-1, sr * duration)
+        except Exception:
+            padding = sr * duration - len(wave) % (sr * duration)
+            wave = np.pad(wave, (0, padding))
 
     if normalize:
         wave = np.array([librosa.util.normalize(w) for w in wave])
@@ -113,5 +118,4 @@ def infer_sample(wave, models, sessions, device="cpu", use_fp16=False):
                     y_pred = model.get_logits(fts)
             y_pred = y_pred.detach().cpu().numpy()
             preds.append(y_pred)
-
-    return np.mean(preds, 0)
+    return np.array(preds)

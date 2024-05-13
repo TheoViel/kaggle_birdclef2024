@@ -1,3 +1,4 @@
+import os
 import h5py
 import torch
 import librosa
@@ -88,11 +89,7 @@ class WaveDataset(Dataset):
                         if self.random_crop else 0
                     )
                     wave = wave[start: start + self.max_len]
-
-            if self.normalize:
-                wave = librosa.util.normalize(wave)
-
-            return wave
+            return np.array(wave)
 
     def _get_wave_old(self, idx):
         with h5py.File(self.paths[idx], "r") as f:
@@ -119,11 +116,7 @@ class WaveDataset(Dataset):
                         if self.random_crop else 0
                     )
                     wave = wave[start: start + self.max_len]
-
-            if self.normalize:
-                wave = librosa.util.normalize(wave)
-
-            return wave
+            return np.array(wave)
 
     def _get_target(self, idx, use_secondary=False):
         y = torch.zeros(len(CLASSES)).float()
@@ -154,11 +147,9 @@ class WaveDataset(Dataset):
 
     def __getitem__(self, idx):
         wave = self._get_wave(idx)
-        # wave_no_aug = torch.from_numpy(wave.copy())
 
-        if self.normalize:
+        if self.normalize == "librosa":
             wave = librosa.util.normalize(wave)
-            # wave = (wave - wave.mean()) / (wave.std() + 1e-6)
 
         y, y_aux = self._get_target(idx)
 
@@ -167,4 +158,63 @@ class WaveDataset(Dataset):
 
         wave = torch.from_numpy(wave)
         w = self.sample_weights[idx]
+
+        if self.normalize == "std":
+            wave = wave / (torch.std(wave) + 1e-6)
+
         return wave, y, y_aux, w
+
+
+class PLDataset(Dataset):
+    def __init__(
+        self,
+        dfs,
+        transforms=None,
+        normalize=True,
+        max_len=32000 * 5,
+        folder="../input/unlabeled_features/unlabeled_soundscapes/"
+    ):
+        super().__init__()
+
+        self.dfs = dfs
+        self.transforms = transforms
+        self.folder = folder
+
+        # Parameters
+        self.normalize = normalize
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.dfs[0])
+
+    def _get_wave(self, audio, end):
+        with h5py.File(self.folder + audio, "r") as f:
+            assert os.path.exists(self.folder + audio)
+            wave = f["au"]
+            wave = wave[end - self.max_len: end]
+
+            if len(wave) <= self.max_len:  # Pad
+                pad_len = self.max_len - len(wave)
+                wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
+
+            return np.array(wave)
+
+    def __getitem__(self, idx):
+        audio, end = self.dfs[0]["row_id"][idx].split('_')
+
+        y = np.mean([df.loc[idx, CLASSES].values.astype(float) for df in self.dfs], 0)
+        y = torch.from_numpy(y)
+        y_aux = torch.zeros(len(CLASSES)).float()
+
+        wave = self._get_wave(audio + ".hdf5", int(end) * 32000)
+        if self.normalize == "librosa":
+            wave = librosa.util.normalize(wave)
+
+        if self.transforms is not None:
+            wave = self.transforms(wave)
+        wave = torch.from_numpy(wave)
+
+        if self.normalize == "std":
+            wave = wave / (torch.std(wave) + 1e-6)
+
+        return wave, y, y_aux, 1

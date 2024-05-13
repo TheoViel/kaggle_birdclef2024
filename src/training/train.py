@@ -2,7 +2,6 @@ import gc
 import time
 import torch
 import numpy as np
-from tqdm import tqdm
 from transformers import get_linear_schedule_with_warmup
 
 from data.loader import define_loaders
@@ -83,6 +82,8 @@ def fit(
     data_config,
     loss_config,
     optimizer_config,
+    pl_dataset=None,
+    pl_config=None,
     epochs=1,
     verbose_eval=1,
     use_fp16=False,
@@ -138,6 +139,19 @@ def fit(
         local_rank=local_rank,
     )
 
+    # PL Mix
+    if pl_dataset is not None:
+        pl_loader = torch.utils.data.DataLoader(
+            pl_dataset,
+            batch_size=pl_config["batch_size"],
+            shuffle=True,
+            drop_last=True,
+            num_workers=8,
+            pin_memory=True,
+            persistent_workers=True
+        )
+        pl_iterator = iter(pl_loader)
+
     # LR Scheduler
     num_training_steps = epochs * len(train_loader)
     num_warmup_steps = int(optimizer_config["warmup_prop"] * num_training_steps)
@@ -158,9 +172,25 @@ def fit(
             except AttributeError:
                 train_loader.batch_sampler.sampler.set_epoch(epoch)
 
-        for x, y, y_aux, w in tqdm(train_loader, disable=True):
+        for x, y, y_aux, w in train_loader:
+            if pl_dataset is not None and np.random.random() < pl_config["p"]:
+                try:
+                    x_pl, y_pl, y_aux_pl, w_pl = next(pl_iterator)
+                except StopIteration:
+                    pl_iterator = iter(pl_loader)
+                    x_pl, y_pl, y_aux_pl, w_pl = next(pl_iterator)
+                x = torch.cat([x, x_pl], 0)
+                y = torch.cat([y, y_pl], 0)
+                y_aux = torch.cat([y_aux, y_aux_pl], 0)
+                w = torch.cat([w, w_pl], 0)
+
             with torch.cuda.amp.autocast(enabled=use_fp16):
-                y_pred, y, y_aux, w = model(x.cuda(), y.cuda(), y_aux.cuda(), w.cuda())
+                y_pred, y, y_aux, w = model(
+                    x.cuda(),
+                    y.cuda(),
+                    y_aux.cuda(),
+                    w.cuda(),
+                )
                 loss = loss_fct(y_pred, y, secondary_mask=y_aux, w=w)
 
             scaler.scale(loss).backward()

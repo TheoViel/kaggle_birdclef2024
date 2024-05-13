@@ -75,6 +75,17 @@ class Config:
     self_mixup = False
     normalize = True  # False ??
 
+    use_pl = True
+    pl_config = {
+        "folders": [
+            # "../logs/2024-05-10/18/",  # LB 0.67
+            # "../output/cpmp_preds_72/pl_sub.csv",  # LB 0.72
+            "../output/pl_birdnet.csv",  # BirdNet
+        ],
+        "batch_size": 32,
+        "p": 1,
+    }
+
     melspec_config = {
         "sample_rate": 32000,
         "n_mels": 128,  # 128, 224
@@ -115,7 +126,7 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "tf_efficientnetv2_s"  # tf_efficientnetv2_s tf_efficientnetv2_b0 eca_nfnet_l0
+    name = "tf_efficientnetv2_b0"  # tf_efficientnetv2_s tf_efficientnetv2_b0 eca_nfnet_l0
     pretrained_weights = None
 
     num_classes = 182
@@ -139,7 +150,7 @@ class Config:
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
-        "batch_size": 64,
+        "batch_size": 32,
         "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
@@ -161,7 +172,7 @@ class Config:
     verbose_eval = 100 if epochs <= 20 else 200
 
     fullfit = True
-    n_fullfit = 1
+    n_fullfit = 5
 
 
 if __name__ == "__main__":

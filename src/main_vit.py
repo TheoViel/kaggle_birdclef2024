@@ -65,44 +65,57 @@ class Config:
     use_xc = False
     use_nocall = False
     upsample_low_freq_xc = False
-    upsample_low_freq = False
+    upsample_low_freq = True
 
     train_duration = 5  # 15, 5
     duration = 5
     random_crop = True  # True
 
-    aug_strength = 1
+    aug_strength = 0
     self_mixup = False
-    normalize = True  # False ??
+    normalize = "std"
+
+    use_pl = True
+    pl_config = {
+        "folders": [
+            # "../logs/2024-05-10/18/",  # LB 0.67
+            "../output/cpmp_preds_72/pl_sub.csv",  # LB 0.72
+            # "../output/pl_birdnet.csv",  # BirdNet
+        ],
+        "batch_size": 32,
+        "p": 1,
+    }
 
     melspec_config = {
         "sample_rate": 32000,
-        "n_mels": 128,  # 128, 224
+        "n_mels": 224,  # 128, 224
         "f_min": 90,  # 50
         "f_max": 14000,  # 15000
-        "n_fft": 2048,  # 1536
-        "hop_length": 512,  # 717
-        "normalized": True,
+        "n_fft": 1536,  # 1536
+        "hop_length": 717,  # 717
+        "win_length": 1024,
+        "mel_scale": "htk",
+        "power": 2.0,
     }
     exportable = False
-    norm = "min_max"
+    norm = "simple"
     top_db = None
 
     aug_config = {
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.25,
+            "p": 0.1,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.25,
+            "p": 0.1,
         },
         "mixup":
         {
-            "p_audio": 0.5,
-            "p_spec": 0.2,
+            "p_audio": 0.1,
+            "p_spec": 0.1,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
@@ -139,7 +152,7 @@ class Config:
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
-        "batch_size": 64,  # 32 if "b0" in name else 64,
+        "batch_size": 32,  # 32 if "b0" in name else 64,
         "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
@@ -148,12 +161,11 @@ class Config:
     optimizer_config = {
         "name": "Ranger",
         "lr": 5e-3,
-        "warmup_prop": 0.,
+        "warmup_prop": 0.1,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.,
         "weight_decay": 0.,
     }
-
     epochs = 40
 
     use_fp16 = True
