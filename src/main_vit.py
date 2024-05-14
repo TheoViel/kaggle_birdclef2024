@@ -73,7 +73,7 @@ class Config:
 
     aug_strength = 0
     self_mixup = False
-    normalize = "std"
+    wav_norm = "std"
 
     use_pl = True
     pl_config = {
@@ -134,8 +134,8 @@ class Config:
     num_classes = 182
     drop_rate = 0.1 * int(name[-1])
     drop_path_rate = 0.
-    n_channels = 1
-    head = "gem"
+    n_channels = 3
+    head = ""
     reduce_stride = "256" in name
 
     # Training

@@ -35,7 +35,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         df_train,
         transforms=transforms,
         secondary_labels_weight=config.secondary_labels_weight,
-        normalize=config.normalize,
+        normalize=config.wav_norm,
         max_len=config.melspec_config["sample_rate"] * config.train_duration,
         self_mixup=config.self_mixup,
         random_crop=config.random_crop,
@@ -44,7 +44,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
 
     val_dataset = WaveDataset(
         df_val,
-        normalize=config.normalize,
+        normalize=config.wav_norm,
         max_len=config.melspec_config["sample_rate"] * config.duration,
         train=False,
     )
@@ -59,7 +59,11 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
                 pls.append(pd.read_csv(f + f"pl_sub_{fold}.csv"))
             else:
                 pls += [pd.read_csv(f + f"pl_sub_fullfit_{i}.csv")for i in range(5)]
-        pl_dataset = PLDataset(pls, normalize=config.normalize)
+        pl_dataset = PLDataset(
+            pls,
+            normalize=config.wav_norm,
+            max_len=config.melspec_config["sample_rate"] * config.duration,
+        )
 
     if config.pretrained_weights is not None:
         if config.pretrained_weights.endswith(

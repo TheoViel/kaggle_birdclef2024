@@ -28,21 +28,20 @@ def define_model(
     top_db=None,
     verbose=1,
 ):
-    """ """
     if drop_path_rate > 0 and "coat" not in name and "vit" not in name:
         encoder = timm.create_model(
             name,
             pretrained=pretrained,
             drop_path_rate=drop_path_rate,
-            num_classes=0,
-            global_pool="avg" if "coat" in name else "",
+            drop_rate=drop_rate if head == "" else 0,
+            num_classes=num_classes if head == "" else 0,
         )
     else:
         encoder = timm.create_model(
             name,
             pretrained=pretrained,
-            num_classes=0,
-            global_pool="avg" if "coat" in name else "",
+            drop_rate=drop_rate if head == "" else 0,
+            num_classes=num_classes if head == "" else 0,
         )
     encoder.name = name
 
@@ -115,10 +114,12 @@ class ClsModel(nn.Module):
                 num_classes=num_classes,
                 p=drop_rate,
             )
-        else:
+        elif head == "gem":
             self.global_pool = GeM(p_trainable=False) if self.use_gem else None
             self.dropout = nn.Dropout(drop_rate) if drop_rate else nn.Identity()
             self.logits = nn.Linear(self.nb_ft, num_classes)
+        else:
+            self.logits = None
 
         self._update_num_channels()
 
@@ -262,5 +263,5 @@ class ClsModel(nn.Module):
             fts = fts.permute(0, 2, 3, 1, 4)
             fts = fts.reshape(bs, nb_ft, f, n_chunks * t_c)
 
-        logits = self.get_logits(fts)
+        logits = self.get_logits(fts) if self.logits is not None else fts
         return logits, y, y_aux, w
