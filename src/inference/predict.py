@@ -29,7 +29,7 @@ def load_sample(path, evaluate=False, sr=32000, duration=5, normalize="librosa")
     wave = torch.from_numpy(wave)
 
     if normalize == "std":
-        wave = wave / (torch.std(wave, axis=1, keepdims=True) + 1e-6)
+        wave = wave / torch.clamp(torch.std(wave, axis=1, keepdims=True), min=1e-6)
     return wave
 
 

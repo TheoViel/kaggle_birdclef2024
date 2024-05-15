@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class Mixup(nn.Module):
-    def __init__(self, p=1., alpha=0.4, additive=False, num_classes=1, **kwargs):
+    def __init__(self, p=1., alpha=0.4, additive=False, num_classes=1, norm="std", **kwargs):
         """
         Mixup augmentation module.
 
@@ -17,6 +17,7 @@ class Mixup(nn.Module):
         self.additive = additive
         self.num_classes = num_classes
         self.p = p
+        self.norm = norm
 
     def forward(self, x, y=None, y_aux=None, w=None):
         """
@@ -50,6 +51,9 @@ class Mixup(nn.Module):
 
         if n_dims == 2:
             x = coeffs.view(-1, 1) * x + (1 - coeffs.view(-1, 1)) * x[perm]
+            if self.norm == "std":
+                x = x / torch.clamp(x.std(1, keepdims=True), min=1e-6)
+
         elif n_dims == 3:
             x = coeffs.view(-1, 1, 1) * x + (1 - coeffs.view(-1, 1, 1)) * x[perm]
         elif n_dims == 4:
@@ -78,7 +82,8 @@ class Mixup(nn.Module):
 
         if y_aux is not None:
             y_aux = torch.cat([y_aux.unsqueeze(0), y_aux[perm].unsqueeze(0)], 0).amax(0)
-            y_aux = torch.where(y > 0.5, 0, y_aux)  # Ensure primary label not in secondary
+            # y_aux = torch.where(y > 0.5, 0, y_aux)  # Ensure primary label not in secondary
+            y_aux = y_aux * (1 - y)  # Ensure primary label not in secondary - soft (?)
 
         if w is not None:
             w = coeffs * w + (1 - coeffs) * w[perm]

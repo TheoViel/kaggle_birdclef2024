@@ -71,7 +71,7 @@ class Config:
     duration = 5
     random_crop = True  # True
 
-    aug_strength = 1
+    aug_strength = 0
     self_mixup = False
     wav_norm = "std"
 
@@ -97,12 +97,12 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.5,
+            "p": 0.1,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.5,
+            "p": 0.1,
         },
         "mixup":
         {
@@ -111,6 +111,7 @@ class Config:
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
+            "norm": wav_norm,
         }
     }
 
@@ -125,8 +126,8 @@ class Config:
     pretrained_weights = None
 
     num_classes = 182
-    drop_rate = 0.2
-    drop_path_rate = 0.2
+    drop_rate = 0.1
+    drop_path_rate = 0.1
     n_channels = 3
     head = "gem"
     reduce_stride = False

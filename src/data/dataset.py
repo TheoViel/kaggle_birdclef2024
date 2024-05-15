@@ -17,7 +17,7 @@ class WaveDataset(Dataset):
         df,
         transforms=None,
         secondary_labels_weight=0.0,
-        normalize=True,
+        normalize="std",
         max_len=32000,
         self_mixup=False,
         random_crop=False,
@@ -176,7 +176,7 @@ class WaveDataset(Dataset):
         w = self.sample_weights[idx]
 
         if self.normalize == "std":
-            wave = wave / (torch.std(wave) + 1e-6)
+            wave = wave / max(torch.std(wave), 1e-6)
 
         return wave, y, y_aux, w
 
@@ -186,7 +186,7 @@ class PLDataset(Dataset):
         self,
         files,
         transforms=None,
-        normalize=True,
+        normalize="std",
         max_len=32000 * 5,
         folder="../input/unlabeled_features/unlabeled_soundscapes/",
     ):
@@ -255,6 +255,6 @@ class PLDataset(Dataset):
         wave = torch.from_numpy(wave)
 
         if self.normalize == "std":
-            wave = wave / (torch.std(wave) + 1e-6)
+            wave = wave / max(torch.std(wave), 1e-6)
 
         return wave, y, y_aux, 1

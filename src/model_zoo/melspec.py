@@ -30,14 +30,6 @@ class FeatureExtractor(nn.Module):
         exportable=False,
     ):
         """
-        params={
-            "sample_rate": 32000,
-            "n_mels": 128,
-            "f_min": 20,
-            "n_fft": 2048,
-            "hop_length": 512,
-            "normalized": True,
-        },
         """
         super().__init__()
 

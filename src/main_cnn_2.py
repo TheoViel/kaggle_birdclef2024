@@ -71,7 +71,7 @@ class Config:
     duration = 5
     random_crop = True  # True
 
-    aug_strength = 0
+    aug_strength = 1
     self_mixup = False
     wav_norm = "std"
 
@@ -119,7 +119,7 @@ class Config:
         },
         "mixup":
         {
-            "p_audio": 0.25,
+            "p_audio": 0.2,
             "p_spec": 0.,
             "additive": True,
             "alpha": 4,
@@ -134,14 +134,15 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "efficientvit_b0"  # efficientvit_b1
+    name = "tf_efficientnetv2_b0"
+    # "mixnet_s" "mobilenetv2_100" "mnasnet_100" "tf_efficientnet_b0" "tinynet_b"
     pretrained_weights = None
 
     num_classes = 182
-    drop_rate = 0.1 * int(name[-1])
-    drop_path_rate = 0.
+    drop_rate = 0.2
+    drop_path_rate = 0.2
     n_channels = 3
-    head = ""
+    head = "gem"
     reduce_stride = False
 
     # Training
@@ -153,26 +154,27 @@ class Config:
         "smoothing": 0.,
         "top_k": 0,
         "ousm_k": 0,
-        "activation": "sigmoid",  # "softmax"
+        "activation": "sigmoid",
     }
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
-        "batch_size": 32,  # 32 if "b0" in name else 64,
+        "batch_size": 32 if use_pl else 64,
         "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
     }
-
+    bite = coeff = 2
     optimizer_config = {
-        "name": "Ranger",
-        "lr": 5e-3,
-        "warmup_prop": 0.1,
+        "name": "AdamW",
+        "lr": 1e-3,
+        "warmup_prop": 0.,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.,
-        "weight_decay": 0.,
+        "weight_decay": 0.01,
     }
-    epochs = 40
+
+    epochs = 40 if use_pl else 20
 
     use_fp16 = True
     verbose = 1
@@ -206,8 +208,6 @@ if __name__ == "__main__":
 
     if args.model:
         config.name = args.model
-        if "vit" in config.name:
-            config.drop_rate = 0.1 * int(config.name[-1])
     if args.epochs:
         config.epochs = args.epochs
     if args.lr:
