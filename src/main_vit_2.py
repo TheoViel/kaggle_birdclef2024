@@ -71,12 +71,25 @@ class Config:
     duration = 5
     random_crop = True  # True
 
-    aug_strength = 1
+    aug_strength = 0
     self_mixup = False
     wav_norm = "std"
 
-    use_pl = False
-    pl_config = {}
+    use_pl = True
+    pl_config = {
+        "folders": [
+            "../logs/2024-05-14/17/",  # tinynet
+            "../logs/2024-05-14/16/",  # mnasnet
+            "../logs/2024-05-14/15/",  # mobilenet
+            "../logs/2024-05-14/14/",  # mixnet
+            "../logs/2024-05-14/12/",  # b0
+            "../logs/2024-05-14/8/",   # b0-v2
+            "../logs/2024-05-14/18/",  # vit-b0
+            "../logs/2024-05-14/19/",  # vit-b1
+            # "../output/cpmp_preds_72/pl_sub.csv",
+        ],
+        "batch_size": 32,
+    }
 
     melspec_config = {
         "sample_rate": 32000,
@@ -97,17 +110,17 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.5,
+            "p": 0.1,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.5,
+            "p": 0.1,
         },
         "mixup":
         {
-            "p_audio": 0.5,
-            "p_spec": 0.2,
+            "p_audio": 0.1,
+            "p_spec": 0.1,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
@@ -117,7 +130,7 @@ class Config:
     # k-fold
     k = 4
     folds_file = f"../input/folds_{k}.csv"
-    selected_folds = [0, 1, 2, 3]
+    selected_folds = []  # 0, 1, 2, 3]
 
     # Model
     name = "efficientvit_b0"  # efficientvit_b1
@@ -144,7 +157,7 @@ class Config:
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
-        "batch_size": 32 if use_pl else 64,
+        "batch_size": 32,  # 32 if "b0" in name else 64,
         "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
@@ -158,13 +171,13 @@ class Config:
         "max_grad_norm": 0.,
         "weight_decay": 0.,
     }
-    epochs = 20
+    epochs = 40
 
     use_fp16 = True
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = False
+    fullfit = True
     n_fullfit = 5
 
 

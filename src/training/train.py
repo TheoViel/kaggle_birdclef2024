@@ -173,7 +173,7 @@ def fit(
                 train_loader.batch_sampler.sampler.set_epoch(epoch)
 
         for x, y, y_aux, w in train_loader:
-            if pl_dataset is not None and np.random.random() < pl_config["p"]:
+            if pl_dataset is not None:
                 try:
                     x_pl, y_pl, y_aux_pl, w_pl = next(pl_iterator)
                 except StopIteration:

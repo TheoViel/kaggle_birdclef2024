@@ -65,7 +65,7 @@ class Config:
     use_xc = False
     use_nocall = False
     upsample_low_freq_xc = False
-    upsample_low_freq = False
+    upsample_low_freq = True
 
     train_duration = 5  # 15, 5
     duration = 5
@@ -73,30 +73,24 @@ class Config:
 
     aug_strength = 1
     self_mixup = False
-    normalize = True  # False ??
+    wav_norm = "std"
 
-    use_pl = True
-    pl_config = {
-        "folders": [
-            # "../logs/2024-05-10/18/",  # LB 0.67
-            # "../output/cpmp_preds_72/pl_sub.csv",  # LB 0.72
-            "../output/pl_birdnet.csv",  # BirdNet
-        ],
-        "batch_size": 32,
-        "p": 1,
-    }
+    use_pl = False
+    pl_config = {}
 
     melspec_config = {
         "sample_rate": 32000,
-        "n_mels": 128,  # 128, 224
+        "n_mels": 224,  # 128, 224
         "f_min": 90,  # 50
         "f_max": 14000,  # 15000
-        "n_fft": 2048,  # 1536
-        "hop_length": 512,  # 717
-        "normalized": True,
+        "n_fft": 1536,  # 1536
+        "hop_length": 717,  # 717
+        "win_length": 1024,
+        "mel_scale": "htk",
+        "power": 2.0,
     }
     exportable = False
-    norm = "min_max"
+    norm = "simple"
     top_db = None
 
     aug_config = {
@@ -126,15 +120,16 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "tf_efficientnetv2_b0"  # tf_efficientnetv2_s tf_efficientnetv2_b0 eca_nfnet_l0
+    name = "tf_efficientnetv2_b0"
+    # "mixnet_s" "mobilenetv2_100" "mnasnet_100" "tf_efficientnet_b0" "tinynet_b"
     pretrained_weights = None
 
     num_classes = 182
     drop_rate = 0.2
     drop_path_rate = 0.2
-    n_channels = 1
+    n_channels = 3
     head = "gem"
-    reduce_stride = "256" in name
+    reduce_stride = False
 
     # Training
     loss_config = {
@@ -145,12 +140,12 @@ class Config:
         "smoothing": 0.,
         "top_k": 0,
         "ousm_k": 0,
-        "activation": "sigmoid",  # "softmax"
+        "activation": "sigmoid",
     }
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
-        "batch_size": 32,
+        "batch_size": 32 if use_pl else 64,
         "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
@@ -162,7 +157,7 @@ class Config:
         "warmup_prop": 0.,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.,
-        "weight_decay": 0.1,
+        "weight_decay": 0.01,
     }
 
     epochs = 20
@@ -171,7 +166,7 @@ class Config:
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = True
+    fullfit = False
     n_fullfit = 5
 
 

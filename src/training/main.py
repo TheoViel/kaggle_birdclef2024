@@ -1,4 +1,5 @@
 import gc
+import glob
 import torch
 import numpy as np
 import pandas as pd
@@ -56,9 +57,9 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
             if f.endswith('.csv'):
                 pls.append(pd.read_csv(f))
             elif "fullfit" not in str(fold):
-                pls.append(pd.read_csv(f + f"pl_sub_{fold}.csv"))
+                pls.append(f + f"pl_preds_{fold}")
             else:
-                pls += [pd.read_csv(f + f"pl_sub_fullfit_{i}.csv")for i in range(5)]
+                pls += [f[:-4] for f in glob.glob(f + "pl_preds_*.csv")]
         pl_dataset = PLDataset(
             pls,
             normalize=config.wav_norm,

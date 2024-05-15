@@ -34,6 +34,7 @@ def define_model(
             pretrained=pretrained,
             drop_path_rate=drop_path_rate,
             drop_rate=drop_rate if head == "" else 0,
+            global_pool="" if head == "gem" else None,
             num_classes=num_classes if head == "" else 0,
         )
     else:
@@ -41,6 +42,7 @@ def define_model(
             name,
             pretrained=pretrained,
             drop_rate=drop_rate if head == "" else 0,
+            global_pool="" if head == "gem" else None,
             num_classes=num_classes if head == "" else 0,
         )
     encoder.name = name

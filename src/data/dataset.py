@@ -3,6 +3,7 @@ import h5py
 import torch
 import librosa
 import numpy as np
+import pandas as pd
 
 from torch.utils.data import Dataset
 
@@ -15,7 +16,7 @@ class WaveDataset(Dataset):
         self,
         df,
         transforms=None,
-        secondary_labels_weight=0.,
+        secondary_labels_weight=0.0,
         normalize=True,
         max_len=32000,
         self_mixup=False,
@@ -72,21 +73,29 @@ class WaveDataset(Dataset):
                 wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
 
             else:  # Random start-end crop
-                if self.self_mixup and len(wave) > self.max_len * 2:  # Mix start with end
-                    start_1 = self.sample_start_end(wave, at_start=True) if self.random_crop else 0
+                if (
+                    self.self_mixup and len(wave) > self.max_len * 2
+                ):  # Mix start with end
+                    start_1 = (
+                        self.sample_start_end(wave, at_start=True)
+                        if self.random_crop
+                        else 0
+                    )
                     start_2 = (
-                        self.sample_start_end(wave, at_start=False) if self.random_crop
+                        self.sample_start_end(wave, at_start=False)
+                        if self.random_crop
                         else len(wave) - self.max_len
                     )
                     # start_2 = np.random.randint(start_1 + self.max_len, len(wave) - self.max_len)
                     wave = (
-                        wave[start_1: start_1 + self.max_len] +
-                        wave[start_2: start_2 + self.max_len]
+                        wave[start_1: start_1 + self.max_len]
+                        + wave[start_2: start_2 + self.max_len]
                     ) / 2
                 else:  # Start or end
                     start = (
                         self.sample_start_end(wave, at_start=None)
-                        if self.random_crop else 0
+                        if self.random_crop
+                        else 0
                     )
                     wave = wave[start: start + self.max_len]
             return np.array(wave)
@@ -103,17 +112,21 @@ class WaveDataset(Dataset):
                 if self.self_mixup and len(wave) > self.max_len * 2:
                     start_1 = (
                         np.random.randint(0, len(wave) // 2 - self.max_len)
-                        if self.random_crop else 0
+                        if self.random_crop
+                        else 0
                     )
-                    start_2 = np.random.randint(start_1 + self.max_len, len(wave) - self.max_len)
+                    start_2 = np.random.randint(
+                        start_1 + self.max_len, len(wave) - self.max_len
+                    )
                     wave = (
-                        wave[start_1: start_1 + self.max_len] +
-                        wave[start_2: start_2 + self.max_len]
+                        wave[start_1: start_1 + self.max_len]
+                        + wave[start_2: start_2 + self.max_len]
                     ) / 2
                 else:
                     start = (
                         np.random.randint(0, len(wave) - self.max_len)
-                        if self.random_crop else 0
+                        if self.random_crop
+                        else 0
                     )
                     wave = wave[start: start + self.max_len]
             return np.array(wave)
@@ -132,7 +145,9 @@ class WaveDataset(Dataset):
         if self.secondary_labels_weight or use_secondary:
             for label in self.secondary_labels[idx]:
                 try:
-                    y[CLASSES.index(label)] = 1 if use_secondary else self.secondary_labels_weight
+                    y[CLASSES.index(label)] = (
+                        1 if use_secondary else self.secondary_labels_weight
+                    )
                     y_aux[CLASSES.index(label)] = 1
                 except ValueError:  # Not in considered classes
                     pass
@@ -141,7 +156,8 @@ class WaveDataset(Dataset):
     def get_targets(self):
         targets = [self._get_target(i)[0].numpy() for i in range(self.__len__())]
         targets_sec = [
-            self._get_target(i, use_secondary=True)[0].numpy() for i in range(self.__len__())
+            self._get_target(i, use_secondary=True)[0].numpy()
+            for i in range(self.__len__())
         ]
         return np.array(targets), np.array(targets_sec)
 
@@ -168,15 +184,14 @@ class WaveDataset(Dataset):
 class PLDataset(Dataset):
     def __init__(
         self,
-        dfs,
+        files,
         transforms=None,
         normalize=True,
         max_len=32000 * 5,
-        folder="../input/unlabeled_features/unlabeled_soundscapes/"
+        folder="../input/unlabeled_features/unlabeled_soundscapes/",
     ):
         super().__init__()
 
-        self.dfs = dfs
         self.transforms = transforms
         self.folder = folder
 
@@ -184,8 +199,32 @@ class PLDataset(Dataset):
         self.normalize = normalize
         self.max_len = max_len
 
+        self.load_files(files)
+
+    def load_files(self, files):
+        dfs = []
+        self.targets = None
+        for f in files:
+            df = pd.read_csv(f + ".csv")
+            dfs.append(df[["row_id"]])
+            if len(df.columns) == 183:
+                tgt = df[CLASSES].values
+            else:
+                tgt = np.load(f + ".npy")
+
+            if self.targets is None:
+                self.targets = tgt
+            else:
+                self.targets += tgt
+        self.targets /= len(files)
+
+        assert all(
+            [(df["row_id"].values == dfs[0]["row_id"].values).all() for df in dfs]
+        ), "PLs are not indexed identically"
+        self.ids = dfs[0]["row_id"].values
+
     def __len__(self):
-        return len(self.dfs[0])
+        return len(self.ids)
 
     def _get_wave(self, audio, end):
         with h5py.File(self.folder + audio, "r") as f:
@@ -193,16 +232,17 @@ class PLDataset(Dataset):
             wave = f["au"]
             wave = wave[end - self.max_len: end]
 
-            if len(wave) <= self.max_len:  # Pad
+            if len(wave) < self.max_len:  # Pad
                 pad_len = self.max_len - len(wave)
                 wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
 
             return np.array(wave)
 
     def __getitem__(self, idx):
-        audio, end = self.dfs[0]["row_id"][idx].split('_')
+        audio, end = self.ids[idx].split("_")
 
-        y = np.mean([df.loc[idx, CLASSES].values.astype(float) for df in self.dfs], 0)
+        y = self.targets[idx]
+
         y = torch.from_numpy(y)
         y_aux = torch.zeros(len(CLASSES)).float()
 
