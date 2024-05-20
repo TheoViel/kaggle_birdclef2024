@@ -78,17 +78,29 @@ class Config:
     use_pl = True
     pl_config = {
         "folders": [
-            "../logs/2024-05-14/17/",  # tinynet
-            "../logs/2024-05-14/16/",  # mnasnet
-            "../logs/2024-05-14/15/",  # mobilenet
-            "../logs/2024-05-14/14/",  # mixnet
-            "../logs/2024-05-14/12/",  # b0
-            "../logs/2024-05-14/8/",   # b0-v2
-            "../logs/2024-05-14/18/",  # vit-b0
-            "../logs/2024-05-14/19/",  # vit-b1
-            # "../output/cpmp_preds_72/pl_sub.csv",
+            # # Mixup only
+            # "../logs/2024-05-16/2/",  # vit-b0
+            # "../logs/2024-05-16/3/",  # vit-b1
+            # "../logs/2024-05-16/4/",  # mixnet
+            # "../logs/2024-05-16/5/",  # mobilenet
+            # "../logs/2024-05-16/6/",  # mnasnet
+            # "../logs/2024-05-16/7/",  # b0
+            # "../logs/2024-05-16/8/",  # tinynet
+            # "../logs/2024-05-16/9/",  # b0-v2
+
+            # Stage 2
+            "../logs/2024-05-16/12/",  # vit-b0 PL2 no augs              0.71
+            "../logs/2024-05-17/3/",   # mnasnet PL2 no augs             0.70
+            "../logs/2024-05-18/1/",   # effvitm3 PL2 no augs            0.70
+            # "../logs/2024-05-18/8/",   # mobilenetv3_s PL2 no augs
+            "../logs/2024-05-19/0/",   # efficientnet_lite0 PL2 no augs  0.70
+            # "../logs/2024-05-19/9/",   # regnety_002 PL2 no augs
+            # "../logs/2024-05-20/1/",   # lcnet_100 PL2 no augs
+            "../logs/2024-05-20/2/",   # mobilenetv3_lm PL2 no augs      0.??
+            "../logs/2024-05-20/5/",   # repghostnet_100 PL2 no augs     0.??
         ],
         "batch_size": 32,
+        "agg": "avg",
     }
 
     melspec_config = {
@@ -110,16 +122,16 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.1,
+            "p": 0.,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.1,
+            "p": 0.,
         },
         "mixup":
         {
-            "p_audio": 0.25,
+            "p_audio": 0.,
             "p_spec": 0.,
             "additive": True,
             "alpha": 4,
@@ -134,7 +146,7 @@ class Config:
     selected_folds = [0, 1, 2, 3]
 
     # Model
-    name = "efficientvit_b0"  # efficientvit_b1
+    name = "efficientvit_b1"  # efficientvit_b1
     pretrained_weights = None
 
     num_classes = 182
@@ -158,7 +170,7 @@ class Config:
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
 
     data_config = {
-        "batch_size": 32,  # 32 if "b0" in name else 64,
+        "batch_size": 32,
         "val_bs": 256,
         "num_classes": num_classes,
         "num_workers": 8,
@@ -167,9 +179,9 @@ class Config:
     optimizer_config = {
         "name": "Ranger",
         "lr": 5e-3,
-        "warmup_prop": 0.1,
+        "warmup_prop": 0.,
         "betas": (0.9, 0.999),
-        "max_grad_norm": 0.,
+        "max_grad_norm": 1.,
         "weight_decay": 0.,
     }
     epochs = 40
@@ -207,7 +219,7 @@ if __name__ == "__main__":
     if args.model:
         config.name = args.model
         if "vit" in config.name:
-            config.drop_rate = 0.1 * int(config.name[-1])
+            config.drop_rate = min(0.1 * int(config.name[-1]), 0.1)
     if args.epochs:
         config.epochs = args.epochs
     if args.lr:

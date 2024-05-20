@@ -189,6 +189,7 @@ class PLDataset(Dataset):
         normalize="std",
         max_len=32000 * 5,
         folder="../input/unlabeled_features/unlabeled_soundscapes/",
+        agg="avg"
     ):
         super().__init__()
 
@@ -198,6 +199,7 @@ class PLDataset(Dataset):
         # Parameters
         self.normalize = normalize
         self.max_len = max_len
+        self.agg = agg
 
         self.load_files(files)
 
@@ -215,8 +217,12 @@ class PLDataset(Dataset):
             if self.targets is None:
                 self.targets = tgt
             else:
-                self.targets += tgt
-        self.targets /= len(files)
+                if self.agg == "avg":
+                    self.targets += tgt
+                else:  # max
+                    self.targets = np.max([self.targets, tgt], 0)
+        if self.agg == "avg":
+            self.targets /= len(files)
 
         assert all(
             [(df["row_id"].values == dfs[0]["row_id"].values).all() for df in dfs]

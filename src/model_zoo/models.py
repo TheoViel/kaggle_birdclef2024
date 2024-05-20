@@ -28,7 +28,7 @@ def define_model(
     top_db=None,
     verbose=1,
 ):
-    if drop_path_rate > 0 and "coat" not in name and "vit" not in name:
+    if drop_path_rate > 0 and "coat" not in name and "vit" not in name and "ghost" not in name:
         encoder = timm.create_model(
             name,
             pretrained=pretrained,

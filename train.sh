@@ -3,9 +3,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3
 
 cd src
 
-torchrun --nproc_per_node=4 main_vit_2.py
-echo
-
 # torchrun --nproc_per_node=4 main_vit.py
 # echo
 
@@ -27,5 +24,5 @@ echo
 # torchrun --nproc_per_node=4 main_cnn.py --model tinynet_b
 # echo
 
-# echo
-# torchrun --nproc_per_node=4 main_vit.py --model efficientvit_b1
+echo
+torchrun --nproc_per_node=4 main_cnn.py

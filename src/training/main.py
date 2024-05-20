@@ -64,6 +64,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
             pls,
             normalize=config.wav_norm,
             max_len=config.melspec_config["sample_rate"] * config.duration,
+            agg=config.pl_config["agg"],
         )
 
     if config.pretrained_weights is not None:

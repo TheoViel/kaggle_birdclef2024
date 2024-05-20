@@ -97,17 +97,17 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.1,
+            "p": 0.,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.1,
+            "p": 0.,
         },
         "mixup":
         {
             "p_audio": 0.5,
-            "p_spec": 0.2,
+            "p_spec": 0.,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
@@ -167,8 +167,8 @@ class Config:
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = False
-    n_fullfit = 5
+    fullfit = True
+    n_fullfit = 1
 
 
 if __name__ == "__main__":
