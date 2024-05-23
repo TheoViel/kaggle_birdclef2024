@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
+from data.preparation import add_xeno_low_freq, prepare_nocall_data, prepare_data_2
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -62,7 +62,7 @@ class Config:
     save_weights = True
 
     # Data
-    use_xc = False
+    use_xc = True
     use_nocall = False
     upsample_low_freq_xc = False
     upsample_low_freq = True
@@ -70,6 +70,7 @@ class Config:
     train_duration = 5  # 15, 5
     duration = 5
     random_crop = True  # True
+    sampling = "start"
 
     aug_strength = 0
     self_mixup = False
@@ -78,26 +79,31 @@ class Config:
     use_pl = True
     pl_config = {
         "folders": [
-            # # Mixup only
-            # "../logs/2024-05-16/2/",  # vit-b0
-            # "../logs/2024-05-16/3/",  # vit-b1
+            # # v2 - Mixup only
+            # "../logs/2024-05-16/2/",  # efficientvit_b0
+            # "../logs/2024-05-16/3/",  # efficientvit_b1
             # "../logs/2024-05-16/4/",  # mixnet
-            # "../logs/2024-05-16/5/",  # mobilenet
-            # "../logs/2024-05-16/6/",  # mnasnet
-            # "../logs/2024-05-16/7/",  # b0
+            # "../logs/2024-05-16/5/",  # mobilenetv2
+            # "../logs/2024-05-16/6/",  # mnasnet_100
+            # "../logs/2024-05-16/7/",  # efficientnet_b0
             # "../logs/2024-05-16/8/",  # tinynet
-            # "../logs/2024-05-16/9/",  # b0-v2
+            # "../logs/2024-05-16/9/",  # efficientnetv2_b0
 
-            # Stage 2
-            "../logs/2024-05-16/12/",  # vit-b0 PL2 no augs              0.71
-            "../logs/2024-05-17/3/",   # mnasnet PL2 no augs             0.70
-            "../logs/2024-05-18/1/",   # effvitm3 PL2 no augs            0.70
-            # "../logs/2024-05-18/8/",   # mobilenetv3_s PL2 no augs
-            "../logs/2024-05-19/0/",   # efficientnet_lite0 PL2 no augs  0.70
-            # "../logs/2024-05-19/9/",   # regnety_002 PL2 no augs
-            # "../logs/2024-05-20/1/",   # lcnet_100 PL2 no augs
-            "../logs/2024-05-20/2/",   # mobilenetv3_lm PL2 no augs      0.??
-            "../logs/2024-05-20/5/",   # repghostnet_100 PL2 no augs     0.??
+            # v2.5 - Mixup only More div
+            "../logs/2024-05-16/2/",  # efficientvit_b0
+            "../logs/2024-05-16/3/",  # efficientvit_b1
+            "../logs/2024-05-16/6/",  # mnasnet_100
+            "../logs/2024-05-16/9/",  # efficientnetv2_b0
+            "../logs/2024-05-23/1/",  # mobilenetv3_lm
+            "../logs/2024-05-23/4/",  # efficientvit_m3
+
+            # # v3 - start sampling + xenocanto
+            # "../logs/2024-05-22/2/",  # efficientvit_b0
+            # "../logs/2024-05-22/3/",  # efficientvit_b1
+            # "../logs/2024-05-22/4/",  # efficientvit_m3
+            # "../logs/2024-05-22/5/",  # mnasnet_100
+            # "../logs/2024-05-22/6/",  # efficientnet_b0
+            # "../logs/2024-05-22/7/",  # mobilenetv3_lm
         ],
         "batch_size": 32,
         "agg": "avg",
@@ -227,7 +233,8 @@ if __name__ == "__main__":
 
     df = prepare_data_2(DATA_PATH)
     if config.use_xc:
-        df_xc = prepare_xenocanto_data(DATA_PATH)
+        df_xc = add_xeno_low_freq(df, upsample_to=0, low_freq=500)
+        # df_xc = prepare_xenocanto_data(DATA_PATH)
         df = pd.concat([df, df_xc], ignore_index=True)
 
     if config.use_nocall:

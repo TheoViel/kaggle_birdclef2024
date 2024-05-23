@@ -40,6 +40,7 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         max_len=config.melspec_config["sample_rate"] * config.train_duration,
         self_mixup=config.self_mixup,
         random_crop=config.random_crop,
+        sampling=config.sampling,
         train=True,
     )
 

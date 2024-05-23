@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
+from data.preparation import add_xeno_low_freq, prepare_nocall_data, prepare_data_2
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -70,6 +70,7 @@ class Config:
     train_duration = 5  # 15, 5
     duration = 5
     random_crop = True  # True
+    sampling = "start"
 
     aug_strength = 0
     self_mixup = False
@@ -154,7 +155,7 @@ class Config:
     optimizer_config = {
         "name": "Ranger",
         "lr": 5e-3,
-        "warmup_prop": 0.1,
+        "warmup_prop": 0.,
         "betas": (0.9, 0.999),
         "max_grad_norm": 0.,
         "weight_decay": 0.,
@@ -165,7 +166,7 @@ class Config:
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = True
+    fullfit = False
     n_fullfit = 1
 
 
@@ -194,7 +195,7 @@ if __name__ == "__main__":
     if args.model:
         config.name = args.model
         if "vit" in config.name:
-            config.drop_rate = 0.1 * int(config.name[-1])
+            config.drop_rate = min(0.1 * int(config.name[-1]), 0.1)
     if args.epochs:
         config.epochs = args.epochs
     if args.lr:
@@ -202,7 +203,8 @@ if __name__ == "__main__":
 
     df = prepare_data_2(DATA_PATH)
     if config.use_xc:
-        df_xc = prepare_xenocanto_data(DATA_PATH)
+        df_xc = add_xeno_low_freq(df, upsample_to=0, low_freq=500)
+        # df_xc = prepare_xenocanto_data(DATA_PATH)
         df = pd.concat([df, df_xc], ignore_index=True)
 
     if config.use_nocall:

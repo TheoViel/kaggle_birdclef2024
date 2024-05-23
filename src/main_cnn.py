@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
+from data.preparation import add_xeno_low_freq, prepare_nocall_data, prepare_data_2
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -70,6 +70,7 @@ class Config:
     train_duration = 5  # 15, 5
     duration = 5
     random_crop = True  # True
+    sampling = "start"
 
     aug_strength = 0
     self_mixup = False
@@ -122,7 +123,6 @@ class Config:
 
     # Model
     name = "tf_efficientnetv2_b0"
-    # "mixnet_s" "mobilenetv2_100" "mnasnet_100" "tf_efficientnet_b0" "tinynet_b"
     pretrained_weights = None
 
     num_classes = 182
@@ -167,7 +167,7 @@ class Config:
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = True
+    fullfit = False
     n_fullfit = 1
 
 
@@ -195,6 +195,7 @@ if __name__ == "__main__":
 
     if args.model:
         config.name = args.model
+        config.head = "" if "vit" in args.model else "gem"
     if args.epochs:
         config.epochs = args.epochs
     if args.lr:
@@ -202,7 +203,8 @@ if __name__ == "__main__":
 
     df = prepare_data_2(DATA_PATH)
     if config.use_xc:
-        df_xc = prepare_xenocanto_data(DATA_PATH)
+        df_xc = add_xeno_low_freq(df, upsample_to=0, low_freq=500)
+        # df_xc = prepare_xenocanto_data(DATA_PATH)
         df = pd.concat([df, df_xc], ignore_index=True)
 
     if config.use_nocall:

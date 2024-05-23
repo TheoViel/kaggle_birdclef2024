@@ -21,6 +21,7 @@ class WaveDataset(Dataset):
         max_len=32000,
         self_mixup=False,
         random_crop=False,
+        sampling="start_end",
         train=False,
     ):
         super().__init__()
@@ -39,6 +40,7 @@ class WaveDataset(Dataset):
         self.max_len = max_len
         self.self_mixup = self_mixup
         self.random_crop = random_crop
+        self.sampling = sampling
         self.train = train
 
         if not self.train:
@@ -58,17 +60,11 @@ class WaveDataset(Dataset):
             )
         return start
 
-    def _get_wave(self, idx):
+    def _get_wave_start_end(self, idx, start=False):
         with h5py.File(self.paths[idx], "r") as f:
             wave = f["au"]
 
             if len(wave) <= self.max_len:  # Pad
-                # pad_len = (
-                #     np.random.randint(0, self.max_len - len(wave) + 1) if self.train
-                #     else self.max_len - len(wave)
-                # )
-                # wave = np.pad(np.array(wave), (self.max_len - len(wave) - pad_len, pad_len))
-
                 pad_len = self.max_len - len(wave)
                 wave = np.pad(np.array(wave), (0, pad_len)) if pad_len else wave
 
@@ -93,14 +89,14 @@ class WaveDataset(Dataset):
                     ) / 2
                 else:  # Start or end
                     start = (
-                        self.sample_start_end(wave, at_start=None)
+                        self.sample_start_end(wave, at_start=start)
                         if self.random_crop
                         else 0
                     )
                     wave = wave[start: start + self.max_len]
             return np.array(wave)
 
-    def _get_wave_old(self, idx):
+    def _get_wave_random(self, idx):
         with h5py.File(self.paths[idx], "r") as f:
             wave = f["au"]
 
@@ -162,7 +158,14 @@ class WaveDataset(Dataset):
         return np.array(targets), np.array(targets_sec)
 
     def __getitem__(self, idx):
-        wave = self._get_wave(idx)
+        if self.sampling == "random":
+            wave = self._get_wave_random(idx)
+        elif self.sampling == "start":
+            wave = self._get_wave_start_end(idx, start=True)
+        elif self.sampling == "start_end":
+            wave = self._get_wave_start_end(idx, start=None)
+        else:
+            raise NotImplementedError
 
         if self.normalize == "librosa":
             wave = librosa.util.normalize(wave)

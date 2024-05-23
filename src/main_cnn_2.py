@@ -5,7 +5,12 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import prepare_xenocanto_data, prepare_nocall_data, prepare_data_2
+from data.preparation import (
+    # prepare_xenocanto_data,
+    prepare_nocall_data,
+    prepare_data_2,
+    add_xeno_low_freq,
+)
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -45,7 +50,7 @@ def parse_args():
     parser.add_argument(
         "--weight-decay",
         type=float,
-        default=0.,
+        default=0.0,
         help="Weight decay",
     )
     return parser.parse_args()
@@ -55,6 +60,7 @@ class Config:
     """
     Parameters used for training
     """
+
     # General
     seed = 42
     verbose = 1
@@ -62,7 +68,7 @@ class Config:
     save_weights = True
 
     # Data
-    use_xc = False
+    use_xc = True
     use_nocall = False
     upsample_low_freq_xc = False
     upsample_low_freq = True
@@ -70,6 +76,7 @@ class Config:
     train_duration = 5  # 15, 5
     duration = 5
     random_crop = True  # True
+    sampling = "start"
 
     aug_strength = 0
     self_mixup = False
@@ -79,25 +86,30 @@ class Config:
     pl_config = {
         "folders": [
             # # v2 - Mixup only
-            # "../logs/2024-05-16/2/",  # vit-b0
-            # "../logs/2024-05-16/3/",  # vit-b1
+            # "../logs/2024-05-16/2/",  # efficientvit_b0
+            # "../logs/2024-05-16/3/",  # efficientvit_b1
             # "../logs/2024-05-16/4/",  # mixnet
-            # "../logs/2024-05-16/5/",  # mobilenet
-            # "../logs/2024-05-16/6/",  # mnasnet
-            # "../logs/2024-05-16/7/",  # b0
+            # "../logs/2024-05-16/5/",  # mobilenetv2
+            # "../logs/2024-05-16/6/",  # mnasnet_100
+            # "../logs/2024-05-16/7/",  # efficientnet_b0
             # "../logs/2024-05-16/8/",  # tinynet
-            # "../logs/2024-05-16/9/",  # b0-v2
+            # "../logs/2024-05-16/9/",  # efficientnetv2_b0
 
-            # Stage 2
-            "../logs/2024-05-16/12/",  # vit-b0 PL2 no augs              0.71
-            "../logs/2024-05-17/3/",   # mnasnet PL2 no augs             0.70
-            "../logs/2024-05-18/1/",   # effvitm3 PL2 no augs            0.70
-            # "../logs/2024-05-18/8/",   # mobilenetv3_s PL2 no augs
-            "../logs/2024-05-19/0/",   # efficientnet_lite0 PL2 no augs  0.70
-            # "../logs/2024-05-19/9/",   # regnety_002 PL2 no augs
-            # "../logs/2024-05-20/1/",   # lcnet_100 PL2 no augs
-            "../logs/2024-05-20/2/",   # mobilenetv3_lm PL2 no augs      0.??
-            "../logs/2024-05-20/5/",   # repghostnet_100 PL2 no augs     0.??
+            # v2.5 - Mixup only More div
+            "../logs/2024-05-16/2/",  # efficientvit_b0
+            "../logs/2024-05-16/3/",  # efficientvit_b1
+            "../logs/2024-05-16/6/",  # mnasnet_100
+            "../logs/2024-05-16/9/",  # efficientnetv2_b0
+            "../logs/2024-05-23/1/",  # mobilenetv3_lm
+            "../logs/2024-05-23/4/",  # efficientvit_m3
+
+            # # v3 - start sampling + xenocanto
+            # "../logs/2024-05-22/2/",  # efficientvit_b0
+            # "../logs/2024-05-22/3/",  # efficientvit_b1
+            # "../logs/2024-05-22/4/",  # efficientvit_m3
+            # "../logs/2024-05-22/5/",  # mnasnet_100
+            # "../logs/2024-05-22/6/",  # efficientnet_b0
+            # "../logs/2024-05-22/7/",  # mobilenetv3_lm
         ],
         "batch_size": 32,
         "agg": "avg",
@@ -122,22 +134,21 @@ class Config:
         "specaug_freq": {
             "mask_max_length": 10,
             "mask_max_masks": 3,
-            "p": 0.,
+            "p": 0.0,
         },
         "specaug_time": {
             "mask_max_length": 20,
             "mask_max_masks": 3,
-            "p": 0.,
+            "p": 0.0,
         },
-        "mixup":
-        {
-            "p_audio": 0.,
-            "p_spec": 0.,
+        "mixup": {
+            "p_audio": 0.0,
+            "p_spec": 0.0,
             "additive": True,
             "alpha": 4,
             "num_classes": 182,
             "norm": wav_norm,
-        }
+        },
     }
 
     # k-fold
@@ -147,7 +158,6 @@ class Config:
 
     # Model
     name = "mnasnet_100"
-    # "mixnet_s" "mobilenetv2_100" "mnasnet_100" "tf_efficientnet_b0" "tinynet_b"
     pretrained_weights = None
 
     num_classes = 182
@@ -163,12 +173,12 @@ class Config:
         "weighted": False,  # Weight using rating
         "use_class_weights": False,
         "mask_secondary": True,
-        "smoothing": 0.,
+        "smoothing": 0.0,
         "top_k": 0,
         "ousm_k": 0,
         "activation": "sigmoid",
     }
-    secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
+    secondary_labels_weight = 0.0 if loss_config["mask_secondary"] else 1.0
 
     data_config = {
         "batch_size": 32,
@@ -180,9 +190,9 @@ class Config:
     optimizer_config = {
         "name": "AdamW",
         "lr": 1e-3,
-        "warmup_prop": 0.,
+        "warmup_prop": 0.0,
         "betas": (0.9, 0.999),
-        "max_grad_norm": 0.,
+        "max_grad_norm": 0.0,
         "weight_decay": 0.01,
     }
 
@@ -216,7 +226,7 @@ if __name__ == "__main__":
     log_folder = None
     if config.local_rank == 0:
         log_folder = prepare_log_folder(LOG_PATH)
-        print(f'\n -> Logging results to {log_folder}\n')
+        print(f"\n -> Logging results to {log_folder}\n")
 
     if args.model:
         config.name = args.model
@@ -228,7 +238,8 @@ if __name__ == "__main__":
 
     df = prepare_data_2(DATA_PATH)
     if config.use_xc:
-        df_xc = prepare_xenocanto_data(DATA_PATH)
+        df_xc = add_xeno_low_freq(df, upsample_to=0, low_freq=500)
+        # df_xc = prepare_xenocanto_data(DATA_PATH)
         df = pd.concat([df, df_xc], ignore_index=True)
 
     if config.use_nocall:

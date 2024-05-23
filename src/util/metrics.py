@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import pearsonr, kendalltau
 from sklearn.metrics import roc_auc_score
 
 from params import CLASSES
@@ -31,3 +32,24 @@ def macro_auc(truth, pred, return_per_class=False):
     if return_per_class:
         return np.mean(aucs), aucs_per_class
     return np.mean(aucs)
+
+
+def get_correlation_matrix(ps, corr="pearson"):
+    def sub_corr(sub_1, sub_2, corr_fct):
+        corrs = []
+        for i, c in enumerate(CLASSES):
+            if isinstance(sub_1, np.ndarray):
+                corr = corr_fct(sub_1[:, i], sub_2[:, i]).statistic
+            else:
+                corr = corr_fct(sub_1[c], sub_2[c]).statistic
+            corrs.append(corr)
+        return np.mean(corrs)
+
+    corr_fct = pearsonr if "pearson" in corr else kendalltau
+    corrs = np.eye(len(ps))
+    for i, k in enumerate(ps.keys()):
+        for j, k2 in enumerate(ps.keys()):
+            if i > j:
+                corr = sub_corr(ps[k], ps[k2], corr_fct)
+                corrs[i, j] = corrs[j, i] = corr
+    return corrs
