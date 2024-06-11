@@ -8,9 +8,8 @@ from torch.nn.parallel import DistributedDataParallel
 from training.train import fit
 from model_zoo.models import define_model
 
-from data.preparation import add_xeno_low_freq, upsample_low_freq
+from data.preparation import upsample_low_freq
 from data.dataset import WaveDataset, PLDataset
-from data.transforms import get_transfos
 
 from util.torch import seed_everything, count_parameters, save_model_weights
 
@@ -30,11 +29,9 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
     Returns:
         tuple: A tuple containing predictions and metrics.
     """
-    transforms = get_transfos(strength=config.aug_strength)
-
     train_dataset = WaveDataset(
         df_train,
-        transforms=transforms,
+        transforms=None,
         secondary_labels_weight=config.secondary_labels_weight,
         normalize=config.wav_norm,
         max_len=config.melspec_config["sample_rate"] * config.train_duration,
@@ -57,15 +54,32 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         for f in config.pl_config["folders"]:
             if f.endswith('.csv'):
                 pls.append(pd.read_csv(f))
+            elif f.endswith("avg"):
+                continue
             elif "fullfit" not in str(fold):
                 pls.append(f + f"pl_preds_{fold}")
             else:
                 pls += [f[:-4] for f in glob.glob(f + "pl_preds_*.csv")]
+
+        if "fullfit" in str(fold):
+            pls = [p for i, p in enumerate(pls) if i % config.n_fullfit == int(fold[-1])]
+            # pls = np.random.choice(pls, len(pls) // 2)
+
+        n = len(pls)
+        pls_avgs = [f for f in config.pl_config["folders"] if f.endswith("avg")]
+        for f in pls_avgs:
+            for _ in range(n // len(pls_avgs)):
+                pls.append(f)
+
+        if config.local_rank == 0:
+            print(f"Using PL {len(pls)} files:", pls, "\n")
+
         pl_dataset = PLDataset(
             pls,
             normalize=config.wav_norm,
             max_len=config.melspec_config["sample_rate"] * config.duration,
             agg=config.pl_config["agg"],
+            folder="../input/unlabeled_features/unlabeled_soundscapes/"
         )
 
     if config.pretrained_weights is not None:
@@ -172,10 +186,9 @@ def k_fold(config, df, log_folder=None, run=None):
             df_train = df[df["fold"] != fold].reset_index(drop=True)
             df_val = df[df["fold"] == fold].reset_index(drop=True)
 
-            if config.upsample_low_freq_xc:
-                extra = add_xeno_low_freq(df[df["fold"] != fold])
-                df_train = pd.concat([df_train, extra], ignore_index=True)
-            elif config.upsample_low_freq:
+            if config.remove_low_rating:
+                df_train = df_train[~df_train['rating'].isin([0.5, 1])]
+            if config.upsample_low_freq:
                 extra = upsample_low_freq(df[df["fold"] != fold])
                 df_train = pd.concat([df_train, extra], ignore_index=True)
 

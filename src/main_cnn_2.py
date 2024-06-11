@@ -5,12 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import (
-    # prepare_xenocanto_data,
-    prepare_nocall_data,
-    prepare_data_2,
-    add_xeno_low_freq,
-)
+from data.preparation import prepare_data_2, add_xeno_low_freq
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -69,64 +64,41 @@ class Config:
 
     # Data
     use_xc = True
-    use_nocall = False
-    upsample_low_freq_xc = False
-    upsample_low_freq = True
+    upsample_low_freq = False
+    remove_low_rating = True
 
     train_duration = 5  # 15, 5
     duration = 5
     random_crop = True  # True
     sampling = "start"
-
-    aug_strength = 0
-    self_mixup = False
     wav_norm = "std"
 
     use_pl = True
     pl_config = {
         "folders": [
-            # # v2 - Mixup only
-            # "../logs/2024-05-16/2/",  # efficientvit_b0
-            # "../logs/2024-05-16/3/",  # efficientvit_b1
-            # "../logs/2024-05-16/4/",  # mixnet
-            # "../logs/2024-05-16/5/",  # mobilenetv2
-            # "../logs/2024-05-16/6/",  # mnasnet_100
-            # "../logs/2024-05-16/7/",  # efficientnet_b0
-            # "../logs/2024-05-16/8/",  # tinynet
-            # "../logs/2024-05-16/9/",  # efficientnetv2_b0
-
-            # v2.5 - Mixup only More div
-            "../logs/2024-05-16/2/",  # efficientvit_b0
             "../logs/2024-05-16/3/",  # efficientvit_b1
-            "../logs/2024-05-16/6/",  # mnasnet_100
+            "../logs/2024-05-16/5/",  # mobilenetv2
+            "../logs/2024-05-16/7/",  # efficientnet_b0
             "../logs/2024-05-16/9/",  # efficientnetv2_b0
-            "../logs/2024-05-23/1/",  # mobilenetv3_lm
-            "../logs/2024-05-23/4/",  # efficientvit_m3
-
-            # # v3 - start sampling + xenocanto
-            # "../logs/2024-05-22/2/",  # efficientvit_b0
-            # "../logs/2024-05-22/3/",  # efficientvit_b1
-            # "../logs/2024-05-22/4/",  # efficientvit_m3
-            # "../logs/2024-05-22/5/",  # mnasnet_100
-            # "../logs/2024-05-22/6/",  # efficientnet_b0
-            # "../logs/2024-05-22/7/",  # mobilenetv3_lm
+            "../logs/2024-06-06/1/",  # efficientvit_b0
+            "../logs/2024-06-06/3/",  # efficientvit_m3
+            "../logs/2024-06-07/3/",  # 5 efficientvit_m3
         ],
         "batch_size": 32,
-        "agg": "avg",
+        "agg": "avg_pp",
     }
 
     melspec_config = {
         "sample_rate": 32000,
-        "n_mels": 224,  # 128, 224
-        "f_min": 90,  # 50
-        "f_max": 14000,  # 15000
-        "n_fft": 1536,  # 1536
-        "hop_length": 717,  # 717
+        "n_mels": 224,
+        "f_min": 90,
+        "f_max": 14000,
+        "n_fft": 1536,
+        "hop_length": 717,
         "win_length": 1024,
         "mel_scale": "htk",
         "power": 2.0,
     }
-    exportable = False
     norm = "simple"
     top_db = None
 
@@ -142,7 +114,7 @@ class Config:
             "p": 0.0,
         },
         "mixup": {
-            "p_audio": 0.0,
+            "p_audio": 0.25,
             "p_spec": 0.0,
             "additive": True,
             "alpha": 4,
@@ -170,12 +142,9 @@ class Config:
     # Training
     loss_config = {
         "name": "bce",
-        "weighted": False,  # Weight using rating
-        "use_class_weights": False,
+        "weighted": False,
         "mask_secondary": True,
-        "smoothing": 0.0,
-        "top_k": 0,
-        "ousm_k": 0,
+        "smoothing": 0.,
         "activation": "sigmoid",
     }
     secondary_labels_weight = 0.0 if loss_config["mask_secondary"] else 1.0
@@ -196,7 +165,7 @@ class Config:
         "weight_decay": 0.01,
     }
 
-    epochs = 40
+    epochs = 80
 
     use_fp16 = True
     verbose = 1
@@ -208,6 +177,7 @@ class Config:
 
 if __name__ == "__main__":
     warnings.simplefilter("ignore", UserWarning)
+    warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
     config = Config
     init_distributed(config)
@@ -238,13 +208,11 @@ if __name__ == "__main__":
 
     df = prepare_data_2(DATA_PATH)
     if config.use_xc:
-        df_xc = add_xeno_low_freq(df, upsample_to=0, low_freq=500)
-        # df_xc = prepare_xenocanto_data(DATA_PATH)
-        df = pd.concat([df, df_xc], ignore_index=True)
-
-    if config.use_nocall:
-        df_nocall = prepare_nocall_data(DATA_PATH)
-        df = pd.concat([df, df_nocall], ignore_index=True)
+        df_xc = add_xeno_low_freq(
+            df, low_freq=500, remove_low_rating=config.remove_low_rating
+        )
+        df_previous_comps = pd.read_csv(DATA_PATH + "df_extra_comp.csv")
+        df = pd.concat([df, df_xc, df_previous_comps], ignore_index=True)
 
     run = None
     if config.local_rank == 0:

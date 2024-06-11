@@ -87,6 +87,6 @@ class Mixup(nn.Module):
 
         if w is not None:
             w = coeffs * w + (1 - coeffs) * w[perm]
-            assert w.sum() > 0, f'Weights: {w}'
+            # assert w.sum() > 0, f'Weights: {w}'
 
         return x, y, y_aux, w

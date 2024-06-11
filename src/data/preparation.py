@@ -1,6 +1,5 @@
 import os
 import re
-import glob
 import pandas as pd
 
 from itertools import chain
@@ -91,6 +90,15 @@ def prepare_folds(data_path="../input/", k=4):
 
 
 def update_secondary_labels(df):
+    """
+    Updates secondary labels by combining labels for entries with duplicate IDs.
+
+    Args:
+        df (pandas.DataFrame): Data, expects columns 'id', 'primary_label', and 'secondary_labels'.
+
+    Returns:
+        pandas DataFrame: Updated data.
+    """
     df_dups = df[df.duplicated(subset="id", keep=False)].groupby("id").agg(list)
 
     if not len(df_dups):
@@ -137,6 +145,16 @@ def prepare_data(data_path="../input/"):
 
 
 def update_labels(df):
+    """
+    Update primary and secondary labels in a DataFrame
+    by combining labels for entries with duplicate IDs.
+
+    Args:
+        df (pandas.DataFrame): Data, expects columns 'id', 'primary_label', and 'secondary_labels'.
+
+    Returns:
+        pandas.DataFrame: DataFrame with updated 'primary_label' and 'secondary_labels'.
+    """
     df_dups = df[df.duplicated(subset="id", keep=False)].groupby("id").agg(list)
 
     if not len(df_dups):
@@ -194,7 +212,7 @@ def prepare_data_2(data_path="../input/"):
 
 def prepare_xenocanto_data(data_path="../input/"):
     """
-    Prepares the data.
+    Prepares the xenocanto data.
 
     Args:
         data_path (str, optional): Path to the data directory. Defaults to "../input/".
@@ -261,31 +279,24 @@ def prepare_xenocanto_data(data_path="../input/"):
     return df[COLS]
 
 
-def prepare_nocall_data(data_path="../input/"):
+def add_xeno_low_freq(df, low_freq=500, remove_low_rating=False, verbose=0):
     """
-    Prepares the data.
+    Add samples from Xenocanto dataset to enrich classes with low frequency.
 
     Args:
-        data_path (str, optional): Path to the data directory. Defaults to "../input/".
+        df (pandas.DataFrame): DataFrame containing the main dataset.
+        low_freq (int, optional): Threshold frequency for low-frequency classes. Defaults to 500.
+        remove_low_rating (bool, optional): Remove samples with low ratings. Defaults to False.
+        verbose (int, optional): Verbosity level. Defaults to 0.
 
     Returns:
-        pandas DataFrame: Metadata
+        pandas.DataFrame: DataFrame containing additional samples from Xenocanto dataset.
     """
-    df = pd.DataFrame({"path_ft": glob.glob(data_path + "nocall_features/*/*.hdf5")})
-    df["path"] = df["path_ft"]
-    df["id"] = df["path_ft"].apply(lambda x: x.split("/")[-1][:-5])
-    df["filename"] = df["id"]
-    df["primary_label"] = "nocall"
-    df["secondary_labels"] = [[] for _ in range(len(df))]
-    df["rating"] = 2.5
-    df["fold"] = -1
+    df_xc = prepare_xenocanto_data()
 
-    return df[COLS]
-
-
-def add_xeno_low_freq(df, df_xc=None, low_freq=20, upsample_to=10, verbose=0):
-    if df_xc is None:
-        df_xc = prepare_xenocanto_data()
+    df_xc = df_xc[~df_xc["id"].isin(df["id"])]
+    if remove_low_rating:
+        df_xc = df_xc[df_xc["rating"] != 1]
 
     df_ = df[~df["primary_label"].apply(lambda x: isinstance(x, list))]
     cts = df_.groupby('primary_label').count()["id"]
@@ -299,17 +310,21 @@ def add_xeno_low_freq(df, df_xc=None, low_freq=20, upsample_to=10, verbose=0):
         if verbose:
             print(f'Add {len(xc_samples)} {c} samples')
 
-        if len(xc_samples) + v.id < upsample_to:
-            samples = df[df["primary_label"] == c]
-            extra_samples.append(samples)
-            extra_samples.append(xc_samples)
-            if verbose:
-                print(f'Duplicate {len(samples) + len(xc_samples)} {c} samples')
-
     return pd.concat(extra_samples)
 
 
 def upsample_low_freq(df, low_freq=20, verbose=0):
+    """
+    Upsamples low-frequency classes in the dataset.
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing the dataset.
+        low_freq (int, optional): Threshold frequency for low-frequency classes. Defaults to 20.
+        verbose (int, optional): Verbosity level. Defaults to 0.
+
+    Returns:
+        pandas.DataFrame: DataFrame containing the upsampled dataset.
+    """
     df_ = df[~df["primary_label"].apply(lambda x: isinstance(x, list))]
     cts = df_.groupby('primary_label').count()["id"]
     cts = cts[cts < low_freq]

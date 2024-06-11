@@ -2,22 +2,13 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from typing import Optional
 from torchaudio.transforms import (
-    MelScale,
     AmplitudeToDB,
     MelSpectrogram,
     FrequencyMasking,
     TimeMasking,
 )
 from data.mix import Mixup
-
-try:
-    from nnAudio.features.stft import STFT as nnAudioSTFT
-    from nnAudio.features.stft import STFTBase
-except ImportError:
-    STFTBase = nn.Module
-    print("`nnAudio` was not imported")
 
 
 class FeatureExtractor(nn.Module):
@@ -27,14 +18,19 @@ class FeatureExtractor(nn.Module):
         aug_config=None,
         top_db=None,
         norm="min_max",
-        exportable=False,
     ):
         """
+        Feature extraction module.
+
+        Args:
+            params (dict): Parameters for the spectrogram.
+            aug_config (dict, optional): Configuration for data augmentation. Defaults to None.
+            top_db (float, optional): Threshold for computing the amplitude to dB. Defaults to None.
+            norm (str, optional): Normalization method. Defaults to "min_max".
         """
         super().__init__()
 
-        spectrogram = TraceableMelspec if exportable else MelSpectrogram
-        self.extractor = spectrogram(**params)
+        self.extractor = MelSpectrogram(**params)
         self.amplitude_to_db = AmplitudeToDB(top_db=top_db)
 
         if norm == "mean_std":
@@ -72,6 +68,21 @@ class FeatureExtractor(nn.Module):
             )
 
     def forward(self, x, y=None, y_aux=None, w=None):
+        """
+        Forward pass of the feature extractor.
+
+        Args:
+            x (torch.Tensor): Input audio data.
+            y (torch.Tensor, optional): Target labels. Defaults to None.
+            y_aux (torch.Tensor, optional): Auxiliary labels. Defaults to None.
+            w (torch.Tensor, optional): Auxiliary weights. Defaults to None.
+
+        Returns:
+            torch.Tensor: Extracted features.
+            torch.Tensor: Target labels.
+            torch.Tensor: Auxiliary labels.
+            torch.Tensor: Auxiliary weights.
+        """
         if self.training:
             x, y, y_aux, w = self.mixup_audio(x, y, y_aux, w)
 
@@ -91,10 +102,25 @@ class FeatureExtractor(nn.Module):
 
 class MinMaxNorm(nn.Module):
     def __init__(self, eps=1e-6):
+        """
+        Module for performing min-max normalization on input data.
+
+        Args:
+            eps (float, optional): Small value to avoid division by zero. Defaults to 1e-6.
+        """
         super().__init__()
         self.eps = eps
 
     def forward(self, X):
+        """
+        Forward pass of the min-max normalization module.
+
+        Args:
+            X (torch.Tensor): Input data.
+
+        Returns:
+            torch.Tensor: Normalized data.
+        """
         min_ = torch.amax(X, dim=(1, 2), keepdim=True)
         max_ = torch.amin(X, dim=(1, 2), keepdim=True)
         return (X - min_) / (max_ - min_ + self.eps)
@@ -102,85 +128,48 @@ class MinMaxNorm(nn.Module):
 
 class SimpleNorm(nn.Module):
     def __init__(self):
+        """
+        Module for performing simple normalization on input data.
+        """
         super().__init__()
 
     def forward(self, x):
+        """
+        Forward pass of the simple normalization module.
+
+        Args:
+            x (torch.Tensor): Input data.
+
+        Returns:
+            torch.Tensor: Normalized data.
+        """
         return (x - 40) / 80
 
 
 class MeanStdNorm(nn.Module):
     def __init__(self, eps=1e-6):
+        """
+        Module for performing mean and standard deviation normalization on input data.
+
+        Args:
+            eps (float, optional): Small value to avoid division by zero. Defaults to 1e-6.
+        """
         super().__init__()
         self.eps = eps
 
     def forward(self, X):
+        """
+        Forward pass of the mean and standard deviation normalization module.
+
+        Args:
+            X (torch.Tensor): Input data.
+
+        Returns:
+            torch.Tensor: Normalized data.
+        """
         mean = X.mean((1, 2), keepdim=True)
         std = X.reshape(X.size(0), -1).std(1, keepdim=True).unsqueeze(-1)
         return (X - mean) / (std + self.eps)
-
-
-class TraceableMelspec(nn.Module):
-    def __init__(
-        self,
-        win_length: Optional[int] = None,
-        hop_length: Optional[int] = None,
-        power: float = 2.0,
-        normalized: bool = False,
-        center: bool = True,
-        pad_mode: str = "reflect",
-        # Mel params
-        n_mels: int = 128,
-        sample_rate: int = 16000,
-        f_min: float = 0.0,
-        f_max: Optional[float] = None,
-        n_fft: int = 400,
-        norm: Optional[str] = None,
-        mel_scale: str = "htk",
-        trainable: bool = False,
-    ):
-        super().__init__()
-        self.spectrogram = nnAudioSTFT(
-            n_fft=n_fft,
-            win_length=win_length,
-            freq_bins=None,
-            hop_length=hop_length,
-            window="hann",
-            freq_scale="no",
-            # Do not define `fmin` and `fmax`, because freq_scale = "no"
-            center=center,
-            pad_mode=pad_mode,
-            iSTFT=False,
-            sr=sample_rate,
-            trainable=trainable,
-            output_format="Complex",
-            verbose=False,
-        )
-        self.normalized = normalized
-        self.power = power
-        self.register_buffer(
-            "window",
-            torch.hann_window(win_length if win_length is not None else n_fft),
-        )
-        self.trainable = trainable
-        self.mel_scale = MelScale(
-            n_mels, sample_rate, f_min, f_max, n_fft // 2 + 1, norm, mel_scale
-        )
-
-    def forward(self, x):
-        spec_f = self.spectrogram(x)
-        if self.normalized:
-            spec_f /= self.window.pow(2.0).sum().sqrt()
-        if self.power is not None:
-            # prevent Nan gradient when sqrt(0) due to output=0
-            # Taken from nnAudio.features.stft.STFT
-            eps = 1e-8 if self.trainable else 0.0
-            spec_f = torch.sqrt(
-                spec_f[:, :, :, 0].pow(2) + spec_f[:, :, :, 1].pow(2) + eps
-            )
-            if self.power != 1.0:
-                spec_f = spec_f.pow(self.power)
-        mel_spec = self.mel_scale(spec_f)
-        return mel_spec
 
 
 class CustomMasking(nn.Module):
@@ -192,6 +181,14 @@ class CustomMasking(nn.Module):
     """
 
     def __init__(self, mask_max_length: int, mask_max_masks: int, p=1.0):
+        """
+        Module for applying custom masking to input data.
+
+        Args:
+            mask_max_length (int): Maximum length of the mask.
+            mask_max_masks (int): Maximum number of masks to apply.
+            p (float): Probability of applying the masking. Defaults to 1.0.
+        """
         super().__init__()
         assert isinstance(mask_max_masks, int) and mask_max_masks > 0
         self.mask_max_masks = mask_max_masks
@@ -200,6 +197,15 @@ class CustomMasking(nn.Module):
         self.p = p
 
     def forward(self, x):
+        """
+        Forward pass of the custom masking module.
+
+        Args:
+            x (torch.Tensor): Input data.
+
+        Returns:
+            None.
+        """
         for i in range(x.shape[0]):
             if np.random.binomial(n=1, p=self.p):
                 n_applies = np.random.randint(low=1, high=self.mask_max_masks + 1)
@@ -209,6 +215,15 @@ class CustomMasking(nn.Module):
 
 class CustomTimeMasking(CustomMasking):
     def __init__(self, mask_max_length: int, mask_max_masks: int, p=1.0, inplace=True):
+        """
+        Module for applying custom time masking to input data.
+
+        Args:
+            mask_max_length (int): Maximum length of the mask.
+            mask_max_masks (int): Maximum number of masks to apply.
+            p (float): Probability of applying the masking. Defaults to 1.0.
+            inplace (bool): Whether to apply masking inplace. Defaults to True.
+        """
         super().__init__(
             mask_max_length=mask_max_length,
             mask_max_masks=mask_max_masks,
@@ -219,6 +234,15 @@ class CustomTimeMasking(CustomMasking):
 
 class CustomFreqMasking(CustomMasking):
     def __init__(self, mask_max_length: int, mask_max_masks: int, p=1.0, inplace=True):
+        """
+        Module for applying custom frequency masking to input data.
+
+        Args:
+            mask_max_length (int): Maximum length of the mask.
+            mask_max_masks (int): Maximum number of masks to apply.
+            p (float): Probability of applying the masking. Defaults to 1.0.
+            inplace (bool): Whether to apply masking inplace. Defaults to True.
+        """
         super().__init__(
             mask_max_length=mask_max_length,
             mask_max_masks=mask_max_masks,

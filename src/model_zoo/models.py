@@ -3,7 +3,7 @@ import torch
 import warnings
 import torch.nn as nn
 
-from model_zoo.layers import GeM, FreqAttention
+from model_zoo.layers import GeM
 from util.torch import load_model_weights
 from model_zoo.melspec import FeatureExtractor
 
@@ -13,7 +13,7 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 def define_model(
     name,
     melspec_params,
-    head="freq_att",
+    head="gem",
     aug_config=None,
     num_classes=182,
     n_channels=1,
@@ -22,12 +22,32 @@ def define_model(
     pretrained_weights="",
     pretrained=True,
     reduce_stride=False,
-    replace_pad_conv=False,
-    exportable=False,
     norm="min_max",
     top_db=None,
     verbose=1,
 ):
+    """
+    Defines the model.
+
+    Args:
+        name (str): Name of the model architecture.
+        melspec_params (dict): Parameters for Mel spectrogram creation.
+        head (str, optional): Type of head layer. Defaults to "gem".
+        aug_config (dict, optional): Configuration for data augmentation. Defaults to None.
+        num_classes (int, optional): Number of output classes. Defaults to 182.
+        n_channels (int, optional): Number of input channels. Defaults to 1.
+        drop_rate (float, optional): Dropout rate. Defaults to 0.
+        drop_path_rate (float, optional): Drop path rate. Defaults to 0.
+        pretrained_weights (str, optional): Path to pretrained weights. Defaults to "".
+        pretrained (bool, optional): Whether to use pretrained weights. Defaults to True.
+        reduce_stride (bool, optional): Whether to reduce stride. Defaults to False.
+        norm (str, optional): Type of normalization. Defaults to "min_max".
+        top_db (float, optional): Top decibel threshold. Defaults to None.
+        verbose (int, optional): Verbosity level. Defaults to 1.
+
+    Returns:
+        ClsModel: Defined classification model.
+    """
     if drop_path_rate > 0 and "coat" not in name and "vit" not in name and "ghost" not in name:
         encoder = timm.create_model(
             name,
@@ -52,7 +72,6 @@ def define_model(
         aug_config=aug_config,
         norm=norm,
         top_db=top_db,
-        exportable=exportable,
     )
 
     model = ClsModel(
@@ -78,7 +97,6 @@ def define_model(
 class ClsModel(nn.Module):
     """
     PyTorch model for wave classification.
-
     """
 
     def __init__(
@@ -94,7 +112,8 @@ class ClsModel(nn.Module):
         Constructor for the classification model.
 
         Args:
-            encoder: The feature encoder.
+            encoder (torch model): The feature encoder.
+            ft_extractor (FeatureExtractor): The feature extractor.
             num_classes (int): The number of primary classes.
             n_channels (int): The number of input channels.
             drop_rate (float): Dropout rate.
@@ -109,14 +128,7 @@ class ClsModel(nn.Module):
         self.use_gem = head == "gem"
         self.head = head
 
-        if head == "freq_att":
-            self.freq_att = FreqAttention(
-                in_chanels=self.nb_ft,
-                # exportable=False,
-                num_classes=num_classes,
-                p=drop_rate,
-            )
-        elif head == "gem":
+        if head == "gem":
             self.global_pool = GeM(p_trainable=False) if self.use_gem else None
             self.dropout = nn.Dropout(drop_rate) if drop_rate else nn.Identity()
             self.logits = nn.Linear(self.nb_ft, num_classes)
@@ -215,9 +227,6 @@ class ClsModel(nn.Module):
         Returns:
             torch.Tensor: Logits for the primary classes of shape [batch_size x num_classes].
         """
-        if self.head == "freq_att":
-            return self.freq_att(fts)
-
         if self.use_gem:
             fts = self.global_pool(fts)[:, :, 0, 0]
         else:  # Avg pooling
@@ -233,9 +242,15 @@ class ClsModel(nn.Module):
 
         Args:
             x (torch.Tensor): Input waves of shape [batch_size x max_len].
+            y (torch.Tensor, optional): Target labels. Defaults to None.
+            y_aux (torch.Tensor, optional): Auxiliary labels. Defaults to None.
+            w (torch.Tensor, optional): Auxiliary weights. Defaults to None.
 
         Returns:
             torch.Tensor: Logits for the primary classes of shape [batch_size x num_classes].
+            torch.Tensor: Target labels, updated with mixup if mixup is applied.
+            torch.Tensor: Auxiliary labels, updated with mixup if mixup is applied.
+            torch.Tensor: Auxiliary weights, updated with mixup if mixup is applied.
         """
         n_chunks = x.size(1) // (32000 * 5)
 

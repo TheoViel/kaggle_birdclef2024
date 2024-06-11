@@ -5,7 +5,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data.preparation import add_xeno_low_freq, prepare_nocall_data, prepare_data_2
+from data.preparation import add_xeno_low_freq, prepare_data_2
 from util.torch import init_distributed
 from util.logger import create_logger, save_config, prepare_log_folder, init_neptune
 
@@ -62,18 +62,14 @@ class Config:
     save_weights = True
 
     # Data
-    use_xc = False
-    use_nocall = False
-    upsample_low_freq_xc = False
-    upsample_low_freq = True
+    use_xc = True
+    upsample_low_freq = False
+    remove_low_rating = True
 
-    train_duration = 5  # 15, 5
+    train_duration = 5
     duration = 5
-    random_crop = True  # True
-    sampling = "start"
-
-    aug_strength = 0
-    self_mixup = False
+    random_crop = True
+    sampling = "start_end"
     wav_norm = "std"
 
     use_pl = False
@@ -81,16 +77,15 @@ class Config:
 
     melspec_config = {
         "sample_rate": 32000,
-        "n_mels": 224,  # 128, 224
-        "f_min": 90,  # 50
-        "f_max": 14000,  # 15000
-        "n_fft": 1536,  # 1536
-        "hop_length": 717,  # 717
+        "n_mels": 224,
+        "f_min": 90,
+        "f_max": 14000,
+        "n_fft": 1536,
+        "hop_length": 717,
         "win_length": 1024,
         "mel_scale": "htk",
         "power": 2.0,
     }
-    exportable = False
     norm = "simple"
     top_db = None
 
@@ -135,12 +130,9 @@ class Config:
     # Training
     loss_config = {
         "name": "bce",
-        "weighted": False,  # Weight using rating
-        "use_class_weights": False,
+        "weighted": False,
         "mask_secondary": True,
         "smoothing": 0.,
-        "top_k": 0,
-        "ousm_k": 0,
         "activation": "sigmoid",
     }
     secondary_labels_weight = 0. if loss_config["mask_secondary"] else 1.
@@ -167,7 +159,7 @@ class Config:
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = False
+    fullfit = True
     n_fullfit = 1
 
 
@@ -203,13 +195,11 @@ if __name__ == "__main__":
 
     df = prepare_data_2(DATA_PATH)
     if config.use_xc:
-        df_xc = add_xeno_low_freq(df, upsample_to=0, low_freq=500)
-        # df_xc = prepare_xenocanto_data(DATA_PATH)
-        df = pd.concat([df, df_xc], ignore_index=True)
-
-    if config.use_nocall:
-        df_nocall = prepare_nocall_data(DATA_PATH)
-        df = pd.concat([df, df_nocall], ignore_index=True)
+        df_xc = add_xeno_low_freq(
+            df, low_freq=500, remove_low_rating=config.remove_low_rating
+        )
+        df_previous_comps = pd.read_csv(DATA_PATH + "df_extra_comp.csv")
+        df = pd.concat([df, df_xc, df_previous_comps], ignore_index=True)
 
     run = None
     if config.local_rank == 0:

@@ -36,7 +36,6 @@ def evaluate(
 
     Returns:
         preds (torch.Tensor): Predictions.
-        preds_aux (torch.Tensor): Auxiliary Predictions.
         val_loss (float): Validation loss.
     """
     model.eval()
@@ -104,6 +103,8 @@ def fit(
         data_config (dict): Configuration parameters for data loading.
         loss_config (dict): Configuration parameters for the loss function.
         optimizer_config (dict): Configuration parameters for the optimizer.
+        pl_dataset (Dataset, optional): Dataset for pseudo-labels. Defaults to None.
+        pl_config (dict): Configuration parameters for pseudo-labels. Defaults to None.
         epochs (int, optional): Number of training epochs. Defaults to 1.
         verbose_eval (int, optional): Number of steps for verbose evaluation. Defaults to 1.
         use_fp16 (bool, optional): Whether to use mixed precision training. Defaults to False.
@@ -115,7 +116,8 @@ def fit(
         fold (int, optional): Fold number for tracking progress. Defaults to 0.
 
     Returns:
-        dices (dict): Dice scores at different thresholds.
+        preds (np array): Predictions.
+        scores (dict): Scores.
     """
     scaler = torch.cuda.amp.GradScaler()
 

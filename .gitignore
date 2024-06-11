@@ -37,3 +37,4 @@ src/core
 wandb/
 runs/
 nextvit/
+dataset/

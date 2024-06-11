@@ -6,6 +6,17 @@ from params import CLASSES
 
 
 def macro_auc(truth, pred, return_per_class=False):
+    """
+    Computes the macro AUC score.
+
+    Args:
+        truth (array-like): Ground truth labels.
+        pred (array-like): Predicted probabilities.
+        return_per_class (bool, optional): Return AUC scores per class. Defaults to False.
+
+    Returns:
+        float or tuple: Macro AUC score or tuple of mean AUC and AUC scores per class.
+    """
     aucs = []
     aucs_per_class = {}
 
@@ -35,6 +46,16 @@ def macro_auc(truth, pred, return_per_class=False):
 
 
 def get_correlation_matrix(ps, corr="pearson"):
+    """
+    Computes the correlation matrix.
+
+    Args:
+        ps (dict): Dictionary containing predictions.
+        corr (str, optional): Type of correlation coefficient. Defaults to "pearson".
+
+    Returns:
+        ndarray: Correlation matrix.
+    """
     def sub_corr(sub_1, sub_2, corr_fct):
         corrs = []
         for i, c in enumerate(CLASSES):

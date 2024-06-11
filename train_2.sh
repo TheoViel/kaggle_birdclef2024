@@ -8,6 +8,3 @@ echo
 
 torchrun --nproc_per_node=4 main_cnn_2.py --model mnasnet_100
 echo
-
-# torchrun --nproc_per_node=4 main_vit_2.py --model efficientvit_m3
-# echo

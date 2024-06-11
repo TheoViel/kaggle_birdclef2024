@@ -1,110 +1,5 @@
 import torch
-import torchvision
 import torch.nn as nn
-import torch.nn.functional as F
-
-CLASS_WEIGHTS = [
-    2., 2., 2., 3., 1., 6., 3., 3., 4., 1., 1., 3., 3., 1., 1., 2., 6.,
-    1., 2., 2., 1., 6., 3., 4., 2., 4., 2., 2., 2., 4., 2., 2., 3., 1.,
-    3., 2., 3., 1., 1., 1., 1., 1., 2., 1., 1., 1., 2., 3., 3., 4., 2.,
-    4., 6., 1., 2., 1., 3., 1., 3., 2., 2., 3., 1., 2., 2., 1., 2., 3.,
-    2., 3., 1., 1., 2., 1., 2., 4., 1., 2., 1., 4., 1., 2., 1., 2., 2.,
-    3., 3., 4., 3., 4., 2., 3., 6., 4., 4., 2., 4., 3., 1., 4., 1., 2.,
-    2., 3., 3., 1., 1., 1., 2., 2., 4., 3., 4., 4., 5., 2., 3., 3., 5.,
-    6., 2., 3., 2., 3., 6., 2., 2., 3., 4., 2., 3., 5., 1., 2., 2., 3.,
-    1., 4., 1., 2., 1., 2., 1., 1., 2., 4., 2., 3., 5., 3., 4., 2., 4.,
-    3., 3., 2., 3., 3., 2., 4., 2., 2., 4., 3., 3., 6., 1., 2., 4., 4.,
-    3., 2., 2., 2., 1., 2., 1., 1., 6., 3., 3., 1.
-]
-
-
-class FocalLoss(torch.nn.Module):
-    def __init__(
-        self,
-        alpha: float = 0.25,
-        gamma: float = 2,
-        reduction: str = "mean",
-    ):
-        super().__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-
-    def forward(self, inputs, targets):
-        return torchvision.ops.focal_loss.sigmoid_focal_loss(
-            inputs=inputs,
-            targets=targets,
-            alpha=self.alpha,
-            gamma=self.gamma,
-            reduction=self.reduction,
-        )
-
-
-class FocalLossBCE(torch.nn.Module):
-    def __init__(
-        self,
-        alpha: float = 0.25,
-        gamma: float = 2,
-        reduction: str = "mean",
-        bce_weight: float = 1.0,
-        focal_weight: float = 1.0,
-    ):
-        super().__init__()
-        self.alpha = alpha
-        self.gamma = gamma
-        self.reduction = reduction
-        self.bce = torch.nn.BCEWithLogitsLoss(reduction=reduction)
-        self.bce_weight = bce_weight
-        self.focal_weight = focal_weight
-
-    def forward(self, inputs, targets):
-        focall_loss = torchvision.ops.focal_loss.sigmoid_focal_loss(
-            inputs=inputs,
-            targets=targets,
-            alpha=self.alpha,
-            gamma=self.gamma,
-            reduction=self.reduction,
-        )
-        bce_loss = self.bce(inputs, targets)
-        loss = self.bce_weight * bce_loss + self.focal_weight * focall_loss
-        return loss / (self.bce_weight + self.focal_weight)
-
-
-class SmoothCrossEntropyLoss(nn.Module):
-    """
-    Cross-entropy loss with label smoothing.
-    """
-
-    def __init__(self, eps=0.0):
-        """
-        Constructor.
-        Args:
-            eps (float, optional): Smoothing value. Defaults to 0.
-        """
-        super(SmoothCrossEntropyLoss, self).__init__()
-        self.eps = eps
-
-    def forward(self, inputs, targets):
-        """
-        Computes the loss.
-        Args:
-            inputs (torch tensor [bs x n]): Predictions.
-            targets (torch tensor [bs x n] or [bs]): Targets.
-        Returns:
-            torch tensor [bs]: Loss values.
-        """
-        if len(targets.size()) == 1:  # to one hot
-            targets = torch.zeros_like(inputs).scatter(1, targets.view(-1, 1).long(), 1)
-
-        if self.eps > 0:
-            n_class = inputs.size(1)
-            targets = targets * (1 - self.eps) + (1 - targets) * self.eps / (
-                n_class - 1
-            )
-
-        loss = -targets * F.log_softmax(inputs, dim=1)
-        # loss = loss.sum(-1)
-        return loss
 
 
 class SmoothBCEWithLogitsLoss(nn.Module):
@@ -145,13 +40,6 @@ class SmoothBCEWithLogitsLoss(nn.Module):
 class BirdLoss(nn.Module):
     """
     Custom loss function for the problem.
-
-    Attributes:
-        config (dict): Configuration parameters for the loss.
-        device (str): Device to perform loss computations (e.g., "cuda" or "cpu").
-        eps (float): Smoothing factor for the primary loss.
-        loss (torch.nn.Module): Loss function for primary predictions.
-        loss_aux (torch.nn.Module): Loss function for auxiliary predictions.
     """
 
     def __init__(self, config, device="cuda"):
@@ -167,28 +55,14 @@ class BirdLoss(nn.Module):
         self.device = device
 
         self.eps = config.get("smoothing", 0)
-        self.top_k = config.get("top_k", 0)
         self.weighted = config.get("weighted", False)
-        self.use_class_weights = config.get("use_class_weights", False)
-        self.ousm_k = config.get("ousm_k", 0)
         self.mask_secondary = config.get("mask_secondary", False)
-
-        self.class_weights = torch.tensor(CLASS_WEIGHTS).to(device)
 
         if config["name"] == "bce":
             if self.eps:
                 self.loss = SmoothBCEWithLogitsLoss(eps=self.eps)
             else:
                 self.loss = nn.BCEWithLogitsLoss(reduction="none")
-
-        elif config["name"] == "ce":
-            self.loss = SmoothCrossEntropyLoss(eps=self.eps)
-        elif config["name"] == "focal":
-            assert not self.eps, "smoothing not implemented"
-            self.loss = FocalLoss(reduction="none")
-        elif config["name"] == "focal_bce":
-            assert not self.eps, "smoothing not implemented"
-            self.loss = FocalLossBCE(reduction="none")
         else:
             raise NotImplementedError
 
@@ -213,14 +87,6 @@ class BirdLoss(nn.Module):
 
         return pred, y
 
-    def top_k_mask(self, pred, y):
-        weights = torch.ones_like(pred, device=pred.device)
-        # Zero top_k preds weight
-        weights.scatter_(1, torch.topk(pred, k=self.top_k).indices, torch.zeros_like(pred))
-        # Ensure positive labels are weighted
-        weights = torch.clamp(weights + (y > 0).float(), 0., 1.)
-        return weights
-
     def forward(self, pred, y, secondary_mask=None, w=None):
         """
         Computes the loss.
@@ -235,32 +101,12 @@ class BirdLoss(nn.Module):
         pred, y = self.prepare(pred, y)
         loss = self.loss(pred, y)
 
-        # print(loss.size())
-
-        if self.top_k:
-            top_k_mask = self.top_k_mask(pred, y)
-            loss *= top_k_mask
-
         if self.mask_secondary:
             assert len(loss.size()) == 2, "Do not average per class before masking"
             loss *= (1 - secondary_mask)
 
-        if self.use_class_weights:
-            assert len(loss.size()) == 2, "Do not average per class before weighting"
-            ws = self.class_weights.unsqueeze(0).expand(loss.size(0), -1)
-            ws = torch.where(y > 0, ws, 1)
-            loss = loss * ws
-
         if len(loss.size()) == 2:
             loss = loss.mean(-1)
-
-        if self.ousm_k:
-            _, idxs = loss.topk(y.size(0) - self.ousm_k, largest=False)
-
-            loss = loss.index_select(0, idxs)
-
-            if w is not None:
-                w = w.index_select(0, idxs)
 
         if self.weighted and w is not None:
             loss = (loss * w).sum() / w.sum()

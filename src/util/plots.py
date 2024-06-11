@@ -9,6 +9,16 @@ from scipy.spatial.distance import squareform
 
 
 def load_audio(filepath, sr=32000):
+    """
+    Load audio file.
+
+    Args:
+        filepath (str): Path to the audio file.
+        sr (int, optional): Target sampling rate. Defaults to 32000.
+
+    Returns:
+        numpy.ndarray: Loaded audio data.
+    """
     audio, orig_sr = librosa.load(filepath, sr=None)
 
     if sr != orig_sr:
@@ -19,6 +29,18 @@ def load_audio(filepath, sr=32000):
 
 
 def display_audio(audio, sr=32000, title="", duration=10):
+    """
+    Display audio waveform and play audio.
+
+    Args:
+        audio (str or numpy.ndarray): Path to the audio file or audio data.
+        sr (int, optional): Sampling rate. Defaults to 32000.
+        title (str, optional): Title for the audio plot. Defaults to "".
+        duration (int, optional): Duration of audio to display in seconds. Defaults to 10.
+
+    Returns:
+        IPython.display.Audio: Audio widget.
+    """
     if isinstance(audio, str):
         title = title if len(title) else audio
         audio = load_audio(audio, sr=sr)
@@ -36,6 +58,14 @@ def display_audio(audio, sr=32000, title="", duration=10):
 
 
 def plot_spectrogram(melspec, params, show_colorbar=False):
+    """
+    Plot mel spectrogram.
+
+    Args:
+        melspec (numpy.ndarray): Mel spectrogram.
+        params (dict): Parameters for plotting.
+        show_colorbar (bool, optional): Whether to show colorbar. Defaults to False.
+    """
     fig, ax = plt.subplots(figsize=(15, 5))
     img = librosa.display.specshow(
         melspec,
@@ -54,6 +84,17 @@ def plot_spectrogram(melspec, params, show_colorbar=False):
 
 
 def seriation(Z, N, cur_index):
+    """
+    Compute seriation.
+
+    Args:
+        Z (numpy.ndarray): Linkage matrix.
+        N (int): Number of samples.
+        cur_index (int): Current index.
+
+    Returns:
+        list: List of indices.
+    """
     if cur_index < N:
         return [cur_index]
     else:
@@ -63,6 +104,16 @@ def seriation(Z, N, cur_index):
 
 
 def compute_serial_matrix(dist_mat, method="ward"):
+    """
+    Compute seriated distance matrix.
+
+    Args:
+        dist_mat (numpy.ndarray): Distance matrix.
+        method (str, optional): Linkage method. Defaults to "ward".
+
+    Returns:
+        tuple: Seriated distance matrix, result order, and result linkage.
+    """
     N = len(dist_mat)
     flat_dist_mat = squareform(dist_mat)
     res_linkage = linkage(flat_dist_mat, method=method, preserve_input=True)
@@ -76,7 +127,20 @@ def compute_serial_matrix(dist_mat, method="ward"):
 
 
 def plot_corr(correlations, model_names, reorder=True, res_order=None, figsize=(15, 15), clip=1.):
+    """
+    Plot correlation matrix.
 
+    Args:
+        correlations (numpy.ndarray): Correlation matrix.
+        model_names (list): List of model names.
+        reorder (bool, optional): Whether to reorder models based on correlations. Defaults to True.
+        res_order (list, optional): Result order. Defaults to None.
+        figsize (tuple, optional): Figure size. Defaults to (15, 15).
+        clip (float, optional): Value to clip correlation matrix. Defaults to 1.
+
+    Returns:
+        list: Result order.
+    """
     if reorder:
         m = 1.0 - 0.5 * (correlations + correlations.T)
         m[np.diag_indices_from(m)] = 0.0
