@@ -158,7 +158,7 @@ class Config:
     verbose = 1
     verbose_eval = 100 if epochs <= 20 else 200
 
-    fullfit = True
+    fullfit = False
     n_fullfit = 1
 
 

@@ -31,11 +31,9 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
     """
     train_dataset = WaveDataset(
         df_train,
-        transforms=None,
         secondary_labels_weight=config.secondary_labels_weight,
         normalize=config.wav_norm,
         max_len=config.melspec_config["sample_rate"] * config.train_duration,
-        self_mixup=config.self_mixup,
         random_crop=config.random_crop,
         sampling=config.sampling,
         train=True,
@@ -105,7 +103,6 @@ def train(config, df_train, df_val, fold, log_folder=None, run=None):
         reduce_stride=config.reduce_stride,
         norm=config.norm,
         top_db=config.top_db,
-        exportable=config.exportable,
         verbose=(config.local_rank == 0),
     ).cuda()
 
