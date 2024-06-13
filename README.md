@@ -5,9 +5,12 @@
 This repo contains Theo's part of the solution to the 3rd place solution of the BirdCLEF 2024 challenge.
 By itself, it achieves a public score of 0.72 ± 0.01 and a private score of 0.69 ± 0.01.
 
+- Jean-François' part : https://github.com/jfpuget/birdclef-2024
+- Christof's part: TODO
+
 ## Introduction - Adapted from [Kaggle](https://www.kaggle.com/competitions/birdclef-2024/discussion/511905)
 
-Our pipeline is summarized below. A key ingredient of our solution is to use unlabeled soundscapes for pseudo labeling and model distillation. A number of models were trained with the training data, then used to predict labels on 5 second clips from unlabelled soundscapes. These were added to the original training data to train a new set of models used for the final submission. 
+Our pipeline is summarized below. A key ingredient of our solution is to use unlabeled soundscapes for pseudo labeling and model distillation. A number of models were trained with the training data, then used to predict labels on 5 second clips from unlabeled soundscapes. These were added to the original training data to train a new set of models used for the final submission. 
 
 ![](pipe.png)
 
@@ -30,7 +33,7 @@ This pipeline uses a variety of CNNs (efficientnets, mobilenets, tinynets, mnasn
 
 #### Second Level models
 
-Efficientvit-b0 showed great performances while still being very fast to infer. 5 folds take 40 minutes to submit using ONNX. We tried several models with similar throughput to effvit-b0, and decided to also use an mnasnet-100 for diversity. For training second level models we added the unlabelled soundscapes with the predicted pseudo labels to the training data. This looks simple but it took several attempts to find the correct way to do it. What worked fine was to use rather large batch sizes (128), and add a similar amount of pseudo labeled samples. 
+Efficientvit-b0 showed great performances while still being very fast to infer. 5 folds take 40 minutes to submit using ONNX. We tried several models with similar throughput to Efficientvit-b0 and decided to also use an mnasnet-100 for diversity. For training second level models we added the unlabeled soundscapes with the predicted pseudo labels to the training data. This looks straight-forward but it took several attempts to find the correct way to do it. What worked fine was to use rather large batch sizes (128) and append a similar amount of pseudo labeled samples. 
 
 
 ## How to use the repository
@@ -40,7 +43,7 @@ Efficientvit-b0 showed great performances while still being very fast to infer. 
 - Clone the repository
 
 - Download the data in the `input` folder:
-  - [Competition data](https://www.kaggle.com/competitions/birdclef-2024/dataa)
+  - [Competition data](https://www.kaggle.com/competitions/birdclef-2024/data)
   - [Extra xenocanto data](https://www.kaggle.com/datasets/ludovick/birdclef2024-additional-mp3)
   - [Other data](https://www.kaggle.com/datasets/theoviel/birdclef-2024-prev-data-fts)
 
@@ -48,14 +51,14 @@ Efficientvit-b0 showed great performances while still being very fast to infer. 
 The input folder should at least contain the following:
 ```
 input
-├── prev_comps_features       # From the my dataset
-├── train_audio               # From the competiton data
-├── unlabeled_soundscaptes    # From the competiton data
+├── prev_comps_features       # From my dataset
+├── train_audio               # From the competition data
+├── unlabeled_soundscaptes    # From the competition data
 ├── xenocanto                 # From ludovick's dataset
 │   ├── audio
 │   └── BirdClef2024_additional.csv
-├── df_extra_comp.csv        # From my dataset
-└── train_metadata.csv       # From the competiton data
+├── df_extra_comp.csv         # From my dataset
+└── train_metadata.csv        # From the competition data
 ```
 
 - Setup the environment :
@@ -73,13 +76,13 @@ input
 3. Generate the associated pseudo-labels using `notebooks/Inference_v2.ipynb`
 4. Train second level models using `bash train_2.sh`
     - Make sure to update the configs in `src/main_cnn_2.py` and `src/main_vit_2.py` to use the experiments from step 2.
-    - `bash crop_train.sh` will train the crop classification model
-
+5. Upload your weights to Kaggle, fork and run the [inference kernel](https://www.kaggle.com/code/theoviel/birdclef-2024-inf-v2)
+    - Update the path to the models to your weights.
 
 ### Code structure
 
 If you wish to dive into the code, the repository naming should be straight-forward. Each function is documented.
-The structure is the following :
+The structure is the following:
 
 ```
 src
