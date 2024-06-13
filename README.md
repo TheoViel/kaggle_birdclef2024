@@ -1,8 +1,8 @@
 # 3rd Place Solution to the BirdCLEF 2024 Competition - Theo's part
 
-**Authors :** [Theo Viel](https://github.com/TheoViel)
+**Authors :** [Theo Viel](https://github.com/TheoViel), [Jean-François Puget](https://github.com/jfpuget), [Christof Henkel](https://github.com/ChristofHenkel/)
 
-This repo contains my part of the solution to the 3rd place solution of the BirdCLEF 2024 challenge.
+This repo contains Theo's part of the solution to the 3rd place solution of the BirdCLEF 2024 challenge.
 By itself, it achieves a public score of 0.72 ± 0.01 and a private score of 0.69 ± 0.01.
 
 ## Introduction - Adapted from [Kaggle](https://www.kaggle.com/competitions/birdclef-2024/discussion/511905)
